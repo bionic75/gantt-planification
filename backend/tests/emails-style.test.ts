@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { piecesDeHtml } from '../src/lib/email-layout.ts';
 import { mobilisationEmail, participantAddedEmail } from '../src/modules/events/events.emails.ts';
-import { buildInvitationHTML, pendingAssignmentEmail } from '../src/modules/notifications/notifications.emails.ts';
+import { buildInvitationHTML } from '../src/modules/notifications/notifications.emails.ts';
 
 const evenement = {
     label: 'SAMU 05 - REUNION DE LANCEMENT STRATÉGIQUE',
@@ -93,13 +93,5 @@ describe('emails d’affectation', () => {
     });
     it('invitation sans localisation : pas de ligne de lieu', () => {
         expect(cids(buildInvitationHTML('A', 'B', { ...groupe, location: '-' }, 'new'))).not.toContain('lieu');
-    });
-    it('affectation en attente : icônes du gabarit et informations', () => {
-        const html = pendingAssignmentEmail(
-            { prenom: 'Jeanne', nom: 'Expert', creator_prenom: 'Chef', creator_nom: 'Projet' },
-            { dates: '01/06/2027', activity: 'ANS', location: 'Paris' }
-        );
-        expect(cids(html)).toEqual(expect.arrayContaining(['mallette-grand', 'calendrier', 'mallette', 'lieu']));
-        for (const t of ['Jeanne Expert', 'Chef Projet', '01/06/2027', 'ANS', 'Paris']) expect(html).toContain(t);
     });
 });

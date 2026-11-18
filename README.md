@@ -37,7 +37,9 @@ En développement, l'interface Vue (`frontend/`) est compilée à la volée par 
 `NODE_ENV=production` hors Docker, construire d'abord l'interface : `npm run build:front`.
 
 Première connexion : compte administrateur `admin` / `admin` (ou `INITIAL_ADMIN_USERNAME` /
-`INITIAL_ADMIN_PASSWORD` s'ils sont définis) ; l'application impose alors le choix d'un nouveau mot de passe.
+`INITIAL_ADMIN_PASSWORD` s'ils sont définis) ; l'application impose alors le choix d'un nouveau mot de passe. En
+production (`NODE_ENV=production`), `INITIAL_ADMIN_PASSWORD` est obligatoire tant que ce compte n'existe pas : sans
+lui, le serveur refuse de démarrer.
 
 ## Configuration
 

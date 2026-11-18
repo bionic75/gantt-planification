@@ -23,15 +23,23 @@ async function seedSettings() {
 
 /**
  * Compte administrateur initial, créé s'il n'existe pas : identifiant et mot de passe INITIAL_ADMIN_USERNAME /
- * INITIAL_ADMIN_PASSWORD (défaut admin / admin). Un compte existant n'est jamais modifié.
+ * INITIAL_ADMIN_PASSWORD (défaut admin / admin hors production). Un compte existant n'est jamais modifié.
+ * En production, sans INITIAL_ADMIN_PASSWORD, le serveur refuse de créer le compte et ne démarre pas : un mot de passe
+ * connu de tous (« admin ») laisserait le compte à qui se connecte le premier.
  */
 async function seedAdmin() {
     const username = env.INITIAL_ADMIN_USERNAME;
     if (await prisma.user.findUnique({ where: { username } })) return;
+    if (!env.INITIAL_ADMIN_PASSWORD && env.isProduction) {
+        console.error(
+            `❌ Compte administrateur initial « ${username} » à créer : INITIAL_ADMIN_PASSWORD obligatoire en production.`
+        );
+        process.exit(1);
+    }
     await prisma.user.create({
         data: {
             username,
-            password: await hashPassword(env.INITIAL_ADMIN_PASSWORD),
+            password: await hashPassword(env.INITIAL_ADMIN_PASSWORD || 'admin'),
             must_change_password: 1,
             nom: 'Admin',
             prenom: 'Système',

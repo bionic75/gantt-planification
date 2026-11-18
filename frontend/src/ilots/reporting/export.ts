@@ -1,5 +1,6 @@
 // Reporting : export CSV d'un tableau affiché et impression dans une nouvelle fenêtre (comme l'ancien écran)
 
+import { celluleCsv } from '@/outils/csv';
 import { ecrireDocument } from '@/outils/styles-en-ligne';
 /** Texte affiché d'une cellule (sauts de ligne compris) ; textContent hors navigateur (tests) */
 const texteAffiche = (el: HTMLElement) => (typeof el.innerText === 'string' ? el.innerText : (el.textContent ?? ''));
@@ -12,9 +13,9 @@ export function csvDuTableau(tableau: HTMLTableElement, surUneLigne = false): st
     const lignes = [...tableau.querySelectorAll('tr')].map(tr =>
         [...tr.querySelectorAll<HTMLElement>('th, td')]
             .map(cellule => {
-                let texte = texteAffiche(cellule).replace(/"/g, '""');
+                let texte = texteAffiche(cellule);
                 if (surUneLigne) texte = texte.replace(/\n/g, ' ').trim();
-                return `"${texte}"`;
+                return celluleCsv(texte);
             })
             .join(';')
     );

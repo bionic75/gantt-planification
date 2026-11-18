@@ -1,7 +1,8 @@
 import { prisma } from '../../db/prisma.ts';
 import { sqlTimestamp, toInt } from '../../db/values.ts';
 import { badRequest } from '../../lib/http-error.ts';
-import { emailConfig, sendEmail, setEmailConfig } from '../../lib/mailer.ts';
+import { emailConfig, sendEmail, setEmailConfig, storedSmtpPassword } from '../../lib/mailer.ts';
+import { encryptSecret } from '../../lib/secrets.ts';
 import { logUserAction } from '../../services/action-log.ts';
 import { deleteSettings, getAllSettings, getJsonSetting, getSetting, setSetting } from '../../services/settings.ts';
 import { TAB_KEYS, TAB_PROFILES, sanitizeThemeConfig, tabAccessMerge } from './admin.service.ts';
@@ -10,25 +11,31 @@ import type { Request, Response } from 'express';
 
 // ---------- Configuration email ----------
 
-/** Configuration SMTP sans le mot de passe : seul passwordSet indique qu'il est enregistré */
+/**
+ * Configuration SMTP sans le mot de passe : seul passwordSet indique qu'il est enregistré (et lisible sur ce serveur ;
+ * sinon il est à ressaisir)
+ */
 export async function getEmailConfig(req: Request, res: Response) {
     const row = await prisma.emailConfig.findUnique({ where: { id: 1 } });
     if (!row) return res.json({ host: '', port: 587, secure: 0, user: '', passwordSet: false });
     const { password, ...config } = row;
-    res.json({ ...config, passwordSet: !!password });
+    res.json({ ...config, passwordSet: !!storedSmtpPassword(password) });
 }
 
-/** Mot de passe absent ou vide : celui déjà enregistré est conservé */
+/** Mot de passe absent ou vide : celui déjà enregistré est conservé. Il est chiffré en base (lib/secrets.ts). */
 export async function saveEmailConfig(req: Request, res: Response) {
     const { host, port, secure, user } = req.body;
-    const password = req.body.password || (await prisma.emailConfig.findUnique({ where: { id: 1 } }))?.password || '';
+    const password =
+        req.body.password ||
+        storedSmtpPassword((await prisma.emailConfig.findUnique({ where: { id: 1 } }))?.password) ||
+        '';
     if (!host || !port || !user || !password) throw badRequest('Tous les champs sont requis');
     const data = {
         host: String(host),
         port: toInt(port) as number,
         secure: secure ? 1 : 0,
         user: String(user),
-        password: String(password)
+        password: encryptSecret(String(password))
     };
     await prisma.emailConfig.upsert({
         where: { id: 1 },
@@ -76,8 +83,25 @@ export async function getAppVersion(req: Request, res: Response) {
 
 // ---------- Paramètres ----------
 
+/** Paramètres lus par les écrans des profils non administrateurs : favicon, nouveautés de l'aide, inactivité, CRA */
+const PUBLIC_SETTINGS = new Set([
+    'favicon',
+    'help_publication_enabled',
+    'help_publication_version',
+    'help_publication_timestamp',
+    'inactivity_enabled',
+    'inactivity_timeout',
+    'automation_4_config'
+]);
+/** Secrets jamais renvoyés, même chiffrés */
+const SECRET_SETTINGS = new Set(['asana_token_enc']);
+
+/** Paramètres : liste complète (secrets exclus) pour l'administration, sinon ceux des écrans des autres profils */
 export async function listSettings(req: Request, res: Response) {
-    res.json(await getAllSettings());
+    const all = await getAllSettings();
+    const visible = (key: string) =>
+        req.session.activeProfile === 'admin' ? !SECRET_SETTINGS.has(key) : PUBLIC_SETTINGS.has(key);
+    res.json(Object.fromEntries(Object.entries(all).filter(([key]) => visible(key))));
 }
 
 export async function saveSetting(req: Request, res: Response) {

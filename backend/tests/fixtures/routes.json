@@ -1195,11 +1195,6 @@
         "guard": "auth"
     },
     {
-        "method": "POST",
-        "path": "/api/notifications/create-batch",
-        "guard": "auth"
-    },
-    {
         "method": "GET",
         "path": "/api/notifications/list",
         "guard": "auth"
@@ -1207,21 +1202,6 @@
     {
         "method": "POST",
         "path": "/api/notifications/mark-read",
-        "guard": "auth"
-    },
-    {
-        "method": "POST",
-        "path": "/api/pending-notifications",
-        "guard": "auth"
-    },
-    {
-        "method": "GET",
-        "path": "/api/pending-notifications/:sessionId",
-        "guard": "auth"
-    },
-    {
-        "method": "DELETE",
-        "path": "/api/pending-notifications/:sessionId",
         "guard": "auth"
     },
     {
@@ -1506,11 +1486,6 @@
     },
     {
         "method": "POST",
-        "path": "/api/send-assignment-notifications",
-        "guard": "auth"
-    },
-    {
-        "method": "POST",
         "path": "/api/send-calendar-email",
         "guard": "auth"
     },
@@ -1568,11 +1543,6 @@
         "method": "PUT",
         "path": "/api/tab-access",
         "guard": "admin"
-    },
-    {
-        "method": "POST",
-        "path": "/api/teams/notify",
-        "guard": "auth"
     },
     {
         "method": "POST",
@@ -1663,11 +1633,6 @@
         "method": "GET",
         "path": "/api/users/amoa-ced",
         "guard": "deplacements"
-    },
-    {
-        "method": "POST",
-        "path": "/api/users/change-password",
-        "guard": "auth"
     },
     {
         "method": "GET",

@@ -12,7 +12,6 @@ router.get('/users/public', requireAuth, h(ctrl.listPublic));
 // AMOA CED (comptes autorisés sur le suivi des déplacements) : liste de l'application « Suivi des déplacements »
 router.get('/users/amoa-ced', requireDeplacementsAccess, h(ctrl.listAmoaCed));
 router.get('/users/search', requireAdmin, h(ctrl.search));
-router.post('/users/change-password', requireAuth, h(ctrl.changePassword));
 router.put('/users/:id', requireAdmin, h(ctrl.update));
 router.delete('/users/:id', requireAdmin, h(ctrl.remove));
 router.post('/users/:id/toggle', requireAdmin, h(ctrl.toggle));

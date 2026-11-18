@@ -97,7 +97,7 @@ export function buildAssignmentEmails(
                         const [y, m, d] = s.date.split('-');
                         return `${d}/${m}/${y} (${s.period === 'AM' ? 'Matin 8h-12h' : 'Apres-midi 14h-18h'})`;
                     })
-                    .join('\\n');
+                    .join('\n');
                 emailsToSend.push({
                     type: 'new',
                     to: email,
@@ -107,7 +107,7 @@ export function buildAssignmentEmails(
                     icsContent: buildICS({
                         uid: generateICSUid(),
                         summary,
-                        description: `Affectation: ${cleanLabel}\\nLocalisation: ${location || 'Non precisee'}\\nDemandeur: ${requesterName}\\n\\nCreneaux:\\n${slotsDesc}`,
+                        description: `Affectation: ${cleanLabel}\nLocalisation: ${location || 'Non precisee'}\nDemandeur: ${requesterName}\n\nCreneaux:\n${slotsDesc}`,
                         location,
                         dtstart: formatDateICS(firstSlot.date, startH.start, 0),
                         dtend: formatDateICS(lastSlot.date, endH.end, 0),
@@ -176,7 +176,7 @@ export function buildAssignmentEmails(
                     icsContent: buildICS({
                         uid: generateICSUid(),
                         summary: newSummary,
-                        description: `Nouvelle affectation: ${newLabel}\\nLocalisation: ${newLoc || 'Non precisee'}\\nDemandeur: ${requesterName}`,
+                        description: `Nouvelle affectation: ${newLabel}\nLocalisation: ${newLoc || 'Non precisee'}\nDemandeur: ${requesterName}`,
                         location: newLoc,
                         dtstart: formatDateICS(a.date, hours.start, 0),
                         dtend: formatDateICS(a.date, hours.end, 0),
@@ -240,24 +240,6 @@ export function buildAssignmentEmails(
     }
     return emailsToSend;
 }
-
-/**
- * Email d'une affectation en attente (notification groupée)
- */
-export const pendingAssignmentEmail = (
-    notif: { prenom: string; nom: string; creator_prenom: string; creator_nom: string },
-    assignmentData: { dates?: unknown; activity?: unknown; location?: unknown }
-) =>
-    gabaritMail({
-        icone: 'mallette-grand',
-        titre: 'Nouvelle affectation',
-        corps: `<p style="margin:0;text-align:center;">Bonjour ${e(notif.prenom)} ${e(notif.nom)},<br><strong>${e(notif.creator_prenom)} ${e(notif.creator_nom)}</strong> vous a affecté une nouvelle activité :</p>`,
-        infos:
-            ligneInfo('calendrier', `<strong>Période :</strong> ${e(assignmentData.dates)}`) +
-            ligneInfo('mallette', `<strong>Activité :</strong> ${e(assignmentData.activity)}`) +
-            ligneInfo('lieu', `<strong>Localisation :</strong> ${e(assignmentData.location)}`),
-        fin: '<p style="margin:0;">Cordialement,<br>Le système de planification</p>'
-    });
 
 /**
  * Demande d'affectation adressée à un expert

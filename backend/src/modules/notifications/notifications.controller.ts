@@ -1,17 +1,11 @@
 import crypto from 'crypto';
-import { piecesDeHtml } from '../../lib/email-layout.ts';
-import { badRequest } from '../../lib/http-error.ts';
+import { badRequest, forbidden } from '../../lib/http-error.ts';
 import { createEmailTransporter, emailConfig, sendEmail } from '../../lib/mailer.ts';
 import { logUserAction } from '../../services/action-log.ts';
 import { enqueueEmail, getReusableTransporter } from '../../services/email-queue.ts';
 import { activeSessions } from '../../state/sessions.ts';
 import { getExpertByResource, isEmailOfResource } from '../users/users.service.ts';
-import {
-    assignmentRequestEmail,
-    buildAssignmentEmails,
-    pendingAssignmentEmail,
-    TEAMS_TEST_HTML
-} from './notifications.emails.ts';
+import { assignmentRequestEmail, buildAssignmentEmails, TEAMS_TEST_HTML } from './notifications.emails.ts';
 import * as service from './notifications.service.ts';
 import { calendrierDeLaRessource } from './resource-calendar.ts';
 
@@ -165,15 +159,18 @@ export async function emailBatchStatus(req: Request, res: Response) {
 
 /** Invitations Outlook des affectations, mises en file d'envoi */
 export async function sendAssignmentEmails(req: Request, res: Response) {
-    const { assignments, senderName, senderEmail: clientSenderEmail } = req.body;
+    // Même règle que l'interface : bouton des invitations masqué pour le profil RH
+    if (req.session.activeProfile === 'rh') throw forbidden('Invitations non autorisées pour ce profil');
+    const { assignments } = req.body;
     if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucune affectation à envoyer' });
     }
     if (!emailConfig.user || !emailConfig.password || !getReusableTransporter()) {
         return res.status(500).json({ success: false, error: 'Configuration email non disponible' });
     }
-    const requesterName = senderName || `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
-    const senderEmailAddr = clientSenderEmail || emailConfig.user;
+    // Expéditeur : le compte connecté (nom affiché, organisateur des invitations), jamais une valeur de la requête
+    const requesterName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
+    const senderEmailAddr = (req.session.email as string | undefined) || (emailConfig.user as string);
 
     // Destinataires limités aux utilisateurs rattachés à la ressource concernée (pas d'adresse quelconque)
     const allowed = [];
@@ -221,43 +218,16 @@ export async function sendAssignmentEmails(req: Request, res: Response) {
     res.json({ success: true, batchId, enqueued, message: `${enqueued} invitation(s) ajoutée(s) à la file d'envoi` });
 }
 
-// ---------- Affectations en attente de notification ----------
-
-export async function addPending(req: Request, res: Response) {
-    res.json({ success: true, id: await service.addPendingNotification(req.body, userId(req)) });
-}
-
-export async function listPending(req: Request, res: Response) {
-    res.json(await service.listPendingNotifications(req.params.sessionId));
-}
-
-export async function deletePending(req: Request, res: Response) {
-    res.json({ success: true, deleted: await service.deletePendingNotifications(req.params.sessionId) });
-}
-
-/** Envoi des emails des affectations en attente d'une session, puis suppression */
-export async function sendPendingNotifications(req: Request, res: Response) {
-    const { sessionId } = req.body;
-    const notifications = await service.listPendingNotifications(String(sessionId), { withCreator: true });
-    const results = [];
-    for (const notif of notifications) {
-        const expert = `${notif.prenom} ${notif.nom}`;
-        const html = pendingAssignmentEmail(notif as any, JSON.parse(notif.assignment_data));
-        try {
-            await sendEmail(notif.email, 'Nouvelle affectation', html, piecesDeHtml(html));
-            results.push({ success: true, expert });
-        } catch (error: any) {
-            results.push({ success: false, expert, error: error.message });
-        }
-    }
-    await service.deletePendingNotifications(String(sessionId));
-    logUserAction(req, 'Envoi notifications affectations', { sessionId, count: notifications.length, results });
-    res.json({ success: true, results });
-}
-
 /** Demande d'affectation par email aux experts choisis (réponse immédiate, envoi en arrière-plan) */
 export async function requestAssignment(req: Request, res: Response) {
-    const { fromName, fromEmail, expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
+    // Même règle que l'interface : demande d'affectation réservée aux profils administrateur et utilisateur
+    if (req.session.activeProfile !== 'admin' && req.session.activeProfile !== 'user') {
+        throw forbidden("Demande d'affectation non autorisée pour ce profil");
+    }
+    const { expertIds, subject, startDate, startPeriod, endDate, endPeriod, message } = req.body;
+    // Expéditeur et adresse de réponse : le compte connecté, jamais une valeur de la requête
+    const fromName = `${req.session.prenom || ''} ${req.session.nom || ''}`.trim();
+    const fromEmail = req.session.email;
     if (!Array.isArray(expertIds) || expertIds.length === 0) {
         return res.status(400).json({ success: false, error: 'Aucun expert sélectionné' });
     }
@@ -327,17 +297,6 @@ export async function markRead(req: Request, res: Response) {
     res.json({ success: true });
 }
 
-/** Création groupée (à la déconnexion, après l'envoi des invitations) */
-export async function createBatch(req: Request, res: Response) {
-    const { notifications } = req.body;
-    if (!Array.isArray(notifications) || notifications.length === 0) return res.json({ success: true, created: 0 });
-    const requesterName = `${req.session.prenom || 'Admin'} ${req.session.nom || 'Système'}`;
-    console.log(`📝 Création de ${notifications.length} notification(s) en batch par ${requesterName}`);
-    const { created, errors } = await service.createBatch(notifications, requesterName);
-    console.log(`📊 Résultat batch: ${created} créée(s), ${errors} erreur(s)`);
-    res.json({ success: true, created, errors });
-}
-
 export async function clearAll(req: Request, res: Response) {
     res.json({ success: true, message: 'Toutes les notifications ont été supprimées', ...(await service.clearAll()) });
 }
@@ -368,14 +327,4 @@ export async function teamsTest(req: Request, res: Response) {
     service.logTeams('TEST', teamsEmail, 'Test de connexion');
     console.log('📢 Test Teams envoyé à:', teamsEmail);
     res.json({ success: true });
-}
-
-export async function teamsNotify(req: Request, res: Response) {
-    const { type, data } = req.body;
-    try {
-        res.json(await service.notifyTeams(type, data));
-    } catch (error: any) {
-        console.error('Erreur envoi notification Teams:', error);
-        res.status(500).json({ error: error.message });
-    }
 }

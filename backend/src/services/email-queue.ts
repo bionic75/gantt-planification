@@ -109,7 +109,10 @@ async function takeNextEmail(): Promise<EmailQueue | null> {
 
 function buildMailOptions(email: EmailQueue) {
     const options: SendMailOptions = {
-        from: `"${email.sender_name} (Planning SI-SAMU)" <${emailConfig.user}>`,
+        // Nom affiché sans guillemet, chevron ni antislash : il ne peut pas ajouter d'adresse à l'en-tête From
+        from: `"${String(email.sender_name)
+            .replace(/["\\<>\r\n]/g, '')
+            .trim()} (Planning SI-SAMU)" <${emailConfig.user}>`,
         to: email.recipient_email,
         subject: email.subject,
         html: email.html_body

@@ -24,6 +24,23 @@ export function nowICS() {
         .replace(/\.\d{3}/, '');
 }
 
+/**
+ * Texte d'une propriété ICS (RFC 5545) : antislash, « ; » et « , » échappés, retours à la ligne en « \n ». Une donnée
+ * saisie (libellé, lieu, nom) ne peut pas ajouter de ligne au fichier (organisateur, rappel, autre événement…).
+ */
+export const icsText = (value: unknown) =>
+    String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,')
+        .replace(/\r\n|\r|\n/g, '\\n');
+
+/** Valeur d'un paramètre (CN=…) : entre guillemets, sans guillemet ni retour à la ligne */
+const icsParam = (value: unknown) => `"${String(value ?? '').replace(/["\r\n]/g, '')}"`;
+
+/** Adresse d'un mailto: : caractères d'une adresse email seulement */
+const icsAddress = (value: unknown) => String(value ?? '').replace(/[^A-Za-z0-9.!#$%&'*+/=?^_`{|}~@-]/g, '');
+
 // Générer un UID unique pour un événement ICS
 export function generateICSUid() {
     return crypto.randomUUID() + '@planning-ans';
@@ -75,16 +92,18 @@ export function buildICS({
         `DTSTAMP:${now}`,
         `DTSTART:${dtstart}`,
         `DTEND:${dtend}`,
-        `SUMMARY:${summary}`,
-        `DESCRIPTION:${(description || '').replace(/\n/g, '\\n')}`
+        `SUMMARY:${icsText(summary)}`,
+        `DESCRIPTION:${icsText(description)}`
     ];
 
     if (location) {
-        ics.push(`LOCATION:${location}`);
+        ics.push(`LOCATION:${icsText(location)}`);
     }
 
-    ics.push(`ORGANIZER;CN=${organizerName}:mailto:${organizer}`);
-    ics.push(`ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${attendeeName}:mailto:${attendee}`);
+    ics.push(`ORGANIZER;CN=${icsParam(organizerName)}:mailto:${icsAddress(organizer)}`);
+    ics.push(
+        `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${icsParam(attendeeName)}:mailto:${icsAddress(attendee)}`
+    );
     ics.push(`SEQUENCE:${seq}`);
     ics.push(`STATUS:${status}`);
     ics.push('END:VEVENT');

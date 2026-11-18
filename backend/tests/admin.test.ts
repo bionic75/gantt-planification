@@ -222,6 +222,24 @@ describe('configuration email', () => {
 });
 
 describe('paramètres et configuration', () => {
+    // Audit de sécurité, lot 2 : paramètres de l'administration (configurations, jeton chiffré) lus par tout compte
+    it('lecture des paramètres : liste réduite hors administration, secrets jamais renvoyés', async () => {
+        const key = unique('param');
+        await admin.post('/api/settings', { key, value: 'interne' });
+        await admin.post('/api/settings', { key: 'asana_token_enc', value: 'aa:bb:cc' });
+        const all = (await admin.get('/api/settings')).data;
+        expect(all[key]).toBe('interne');
+        expect(all).not.toHaveProperty('asana_token_enc');
+
+        const user = await createUser(admin, { is_user: 1 });
+        const client = await loginAs(server, user, 'user');
+        const visible = (await client.get('/api/settings')).data;
+        expect(visible).toMatchObject({ favicon: expect.any(String), inactivity_timeout: expect.any(String) });
+        expect(visible).not.toHaveProperty(key);
+        expect(visible).not.toHaveProperty('asana_token_enc');
+        await admin.post('/api/settings', { key: 'asana_token_enc', value: '' });
+    });
+
     it('paramètres, accès aux onglets, thème, version', async () => {
         const key = unique('param');
         expect((await admin.post('/api/settings', { key, value: 'x' })).data).toEqual({

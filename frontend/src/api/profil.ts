@@ -10,8 +10,9 @@ export interface AffectationsSamu {
 export const apiProfil = {
     /** Photo de profil (image en data URI) */
     enregistrerPhoto: (photo: string) => api.post<{ success?: boolean; error?: string }>('/profile/photo', { photo }),
-    changerMotDePasse: (newPassword: string) =>
-        api.post<{ success?: boolean; error?: string }>('/profile/change-password', { newPassword }),
+    /** Mot de passe actuel exigé ; les autres sessions du compte sont fermées */
+    changerMotDePasse: (currentPassword: string, newPassword: string) =>
+        api.post<{ success?: boolean; error?: string }>('/profile/change-password', { currentPassword, newPassword }),
     /** SAMU de la ressource de l'expert, par rôle */
     samu: async (resourceId: number): Promise<AffectationsSamu> => {
         const lignes = await api.get<{ role: string; samu: string }[]>(`/resources/${resourceId}/samu-assignments`);

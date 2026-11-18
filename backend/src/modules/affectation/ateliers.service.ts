@@ -3,6 +3,7 @@ import { prisma } from '../../db/prisma.ts';
 import { idParam, sqlTimestamp } from '../../db/values.ts';
 import { isEmail } from '../../lib/email.ts';
 import { badRequest, notFound } from '../../lib/http-error.ts';
+import { icsText } from '../../lib/ics.ts';
 import { emailConfig, sendEmail } from '../../lib/mailer.ts';
 import { samuNumber } from '../../lib/samu.ts';
 import { getJsonSetting } from '../../services/settings.ts';
@@ -355,8 +356,6 @@ const plusHour = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     return h >= 23 ? '23:59' : `${pad2(h + 1)}:${pad2(m)}`;
 };
-const icsText = (s: string) =>
-    s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 /** Lignes de 75 caractères au plus, la suite commençant par une espace (RFC 5545) */
 const fold = (line: string) => {
     const out = [];

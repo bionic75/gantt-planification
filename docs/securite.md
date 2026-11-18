@@ -52,6 +52,8 @@ Code : `securityHeaders()` dans `backend/src/app.ts` (helmet).
     - profils (administrateur, expert, utilisateur, RH) ou ressource rattachée modifiés : une session ouverte garderait
       les anciens droits. Un simple changement de nom ou d'adresse email ne ferme pas les sessions.
 - Changement de profil (`/api/switch-profile`) : nouvel identifiant de session.
+- Changement du mot de passe depuis « Mon profil » ou à la connexion : les autres sessions du compte sont fermées et
+  la session courante prend un nouvel identifiant.
 - Cookie `Secure` dès que la requête arrive en HTTPS, directement ou par un proxy de confiance (`TRUST_PROXY`).
 - Les sauvegardes `.gpdump` et le transfert vers PostgreSQL / MariaDB ne contiennent pas les sessions.
 
@@ -72,6 +74,8 @@ Code : `backend/src/middlewares/rate-limit.ts`. Compteurs en mémoire, par proce
 | `/api/forgot-password`                                                                              | 20 demandes par adresse IP, 15 min (et 1 par minute par compte) |
 | `/api/reset-password`, `/check`, `/api/mfa/verify`, `/api/mfa/totp-unlock`, `/api/mfa/totp-confirm` | 30 échecs par adresse IP, 15 min                                |
 
+Les codes de double authentification ont aussi leurs propres limites (voir « Double authentification »).
+
 ## Comptes
 
 - Écran de connexion : identifiant et mot de passe sont vérifiés d'abord (`POST /api/login` sans profil) ; le choix
@@ -82,7 +86,14 @@ Code : `backend/src/middlewares/rate-limit.ts`. Compteurs en mémoire, par proce
   bloquée sur l'écran de changement et l'API répond `403 PASSWORD_CHANGE_REQUIRED` à toute autre requête
   (`backend/src/middlewares/password-change.ts`) ; le nouveau mot de passe doit respecter les règles de complexité et
   différer de l'ancien. L'application mobile refuse la connexion de ces comptes. Un mot de passe choisi par
-  l'utilisateur (écran « Mon profil », lien « mot de passe oublié ») lève l'obligation.
+  l'utilisateur (écran « Mon profil », lien « mot de passe oublié ») lève l'obligation. Le contrôle porte sur le
+  chemin de l'URL sans tenir compte de la casse (`/API/...` est bloqué comme `/api/...`).
+- Écran « Mon profil » : le mot de passe actuel est exigé pour en choisir un nouveau (`/api/profile/change-password`),
+  sauf pour le changement imposé à la connexion (il vient d'être saisi). Une session volée ne suffit donc pas à
+  s'approprier le compte. L'ancienne route `/api/users/change-password` (6 caractères, sans règles de complexité) est
+  supprimée.
+- Compte administrateur initial : `admin` / `admin` hors production. En production (`NODE_ENV=production`), tant que
+  ce compte n'existe pas, `INITIAL_ADMIN_PASSWORD` est obligatoire : sans lui, le serveur refuse de démarrer.
 - Profil « utilisateur » : planning en lecture seule (modifications refusées, `403`).
 - Profil « expert » : seule la ligne de sa ressource est modifiable dans le planning. L'identifiant de ressource d'une
   cellule n'est accepté qu'écrit en chiffres (« 12 ») : une clé mal formée (« 1e1 ») est ignorée.
@@ -107,6 +118,11 @@ l'administration : profils soumis (le profil RH ne l'est jamais), méthode, fré
   authentification d'un compte (administration) retire ses appareils de confiance.
 - Changement de profil vers un profil soumis à la double authentification : accepté seulement si elle a été faite
   pour la session ou si l'appareil est de confiance ; sinon refusé (« reconnectez-vous en choisissant ce profil »).
+- Codes erronés (`/api/mfa/verify`, `/api/mfa/totp-unlock`, `/api/mfa/totp-confirm`) :
+    - 5 essais par connexion en attente, qui est ensuite annulée ;
+    - 10 codes erronés par compte en 15 minutes : au-delà, le compte est bloqué (`429`) jusqu'à la fin de la fenêtre,
+      même avec un bon code (se reconnecter ne remet pas le compteur à zéro). Compteur en mémoire, par processus ;
+    - un code email faux 5 fois est supprimé : il faut en demander un nouveau.
 
 ## Données saisies dans les emails et les PDF
 
@@ -118,6 +134,33 @@ l'administration : profils soumis (le profil RH ne l'est jamais), méthode, fré
 - Envoi du calendrier par email : destinataire lu en base (utilisateur rattaché à la ressource). Invitations
   d'affectation : adresses limitées aux utilisateurs rattachés aux ressources concernées.
 - Noms des PDF de CRA : caractères interdits dans un nom de fichier remplacés (pas d'écriture hors du répertoire).
+- PDF de CRA enregistrés (`/api/cra/pdf/saved/:nom`) : mêmes droits que la lecture du CRA (un expert ne lit que les
+  siens) ; un fichier sans CRA correspondant est réservé aux profils administrateur et RH.
+- Invitations calendrier (ICS, `backend/src/lib/ics.ts`) : libellé, description, lieu et noms échappés (RFC 5545) ;
+  une donnée saisie ne peut pas ajouter de ligne au fichier (organisateur, rappel, autre événement).
+- Expéditeur des invitations et des demandes d'affectation : le compte connecté (nom et adresse de la session),
+  jamais une valeur envoyée par le navigateur. Nom affiché dans l'en-tête `From` sans guillemet, chevron ni retour à
+  la ligne. Comme dans l'interface, les invitations sont refusées au profil RH et les demandes d'affectation sont
+  réservées aux profils administrateur et utilisateur.
+- Routes de notification non utilisées par l'interface supprimées (elles permettaient d'envoyer des emails ou des
+  messages Teams au contenu libre) : `/api/pending-notifications`, `/api/send-assignment-notifications`,
+  `/api/notifications/create-batch`, `/api/teams/notify`. Les experts sont notifiés par le serveur lui-même quand un
+  tiers enregistre une affectation.
+
+## Exports (CSV, HTML)
+
+- CSV produits par le serveur (`backend/src/lib/csv.ts`) et par l'interface (`frontend/src/outils/csv.ts`) : une valeur
+  commençant par `=`, `+`, `-`, `@`, une tabulation ou un retour chariot est préfixée d'une apostrophe, pour que le
+  tableur ne l'exécute pas comme une formule (sauf les nombres et le « - » des cases vides). Les guillemets sont
+  doublés.
+- Export du planning (`/api/export/gantt`) : année sur 4 chiffres et mois de 0 à 11 exigés (sinon `400`).
+- Export HTML des événements : toutes les données échappées (participants externes compris), couleurs des types
+  limitées à un code hexadécimal ; le fichier est ouvert hors de l'application, sans sa politique de contenu.
+
+## Paramètres
+
+`GET /api/settings` renvoie à l'administrateur tous les paramètres sauf les secrets (`asana_token_enc`), et aux autres
+profils seulement ceux dont l'interface a besoin (favicon, aide publiée, inactivité, sauvegarde automatique).
 
 ## API publique
 
@@ -130,6 +173,12 @@ Certificat du serveur SMTP vérifié et TLS 1.2 minimum : les identifiants SMTP 
 Serveur au certificat invalide (auto-signé, nom différent) : `SMTP_TLS_INSECURE=true` rétablit l'ancien comportement
 (tout certificat, TLS 1.0), à éviter. En production, la variable du dépôt GitHub `SMTP_TLS_INSECURE` (Settings ›
 Secrets and variables › Actions › Variables) est recopiée dans le `.env` à chaque déploiement.
+
+Le mot de passe SMTP est chiffré en base (AES-256-GCM, `backend/src/lib/secrets.ts`), avec la même clé que le jeton
+Asana (fichier `DB_PATH/.asana_key`, ou clé dérivée de `SESSION_SECRET`) : il ne figure pas en clair dans la base ni
+dans une sauvegarde `.gpdump`. Un mot de passe encore en clair (version précédente, ancienne sauvegarde restaurée) est
+chiffré au démarrage. Une sauvegarde restaurée sur un autre serveur (autre clé) rend le mot de passe illisible :
+l'administration indique alors qu'aucun mot de passe n'est enregistré, il est à ressaisir.
 
 ## Conteneur Docker
 

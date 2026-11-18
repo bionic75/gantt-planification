@@ -103,6 +103,11 @@ export async function resetAllMfa() {
 
 // ---------- Codes par email ----------
 
+/** Erreurs tolérées sur un même code email : au-delà, il est supprimé (un nouveau code doit être demandé) */
+const MAX_EMAIL_CODE_FAILURES = 5;
+/** Erreurs sur le code email en cours, par compte (en mémoire) */
+const emailCodeFailures = new Map<number, number>();
+
 /** Génère et enregistre un code à 6 chiffres valable 10 minutes */
 export async function createEmailCode(userId: number) {
     const code = crypto.randomInt(100000, 1000000).toString();
@@ -112,15 +117,26 @@ export async function createEmailCode(userId: number) {
         prisma.mfaCode.deleteMany({ where: { user_id: userId } }),
         prisma.mfaCode.create({ data: { user_id: userId, code, expires_at } })
     ]);
+    emailCodeFailures.delete(userId);
     return code;
 }
 
-/** Vérifie un code email non expiré et le consomme */
+/** Vérifie un code email non expiré et le consomme ; un code faux 5 fois est supprimé */
 export async function consumeEmailCode(userId: number, code: string) {
-    const row = await prisma.mfaCode.findFirst({ where: { user_id: userId, code } });
+    const row = await prisma.mfaCode.findFirst({ where: { user_id: userId } });
+    if (!row) return false;
+    if (row.code !== code) {
+        const failures = (emailCodeFailures.get(userId) ?? 0) + 1;
+        if (failures >= MAX_EMAIL_CODE_FAILURES) {
+            await prisma.mfaCode.deleteMany({ where: { user_id: userId } });
+            emailCodeFailures.delete(userId);
+        } else emailCodeFailures.set(userId, failures);
+        return false;
+    }
     // expires_at est stocké en ISO 8601 : comparaison faite en JS
-    if (!row || new Date(row.expires_at).getTime() <= Date.now()) return false;
+    if (new Date(row.expires_at).getTime() <= Date.now()) return false;
     await prisma.mfaCode.deleteMany({ where: { user_id: userId } });
+    emailCodeFailures.delete(userId);
     return true;
 }
 

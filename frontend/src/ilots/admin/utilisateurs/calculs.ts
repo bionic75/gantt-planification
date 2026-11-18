@@ -1,5 +1,6 @@
 // Gestion des utilisateurs : saisie, contrôles, liste, tri, détails et export des journaux (sans affichage)
 import type { ActionCompte, ConnexionsCompte, JournalComplet, RessourceCompte, Utilisateur } from '@/api/utilisateurs';
+import { sansFormule } from '@/outils/csv';
 
 // ---------- Saisie ----------
 
@@ -307,7 +308,8 @@ export function demandesAffectation(
 
 const echapper = (v: unknown) => {
     if (typeof v !== 'string') return v;
-    return v.includes(';') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g, '""')}"` : v;
+    const s = sansFormule(v);
+    return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
 /** Horodatage de la base (« AAAA-MM-JJ HH:MM:SS » en UTC, ou ISO) affiché à l'heure de Paris */

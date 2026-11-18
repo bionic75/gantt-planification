@@ -1,7 +1,7 @@
 // Accès aux données : comptes utilisateurs, droits applicatifs, préférences
 import { prisma } from '../../db/prisma.ts';
 import { containsInsensitive, flag, idParam, isUniqueViolation, optional, toInt } from '../../db/values.ts';
-import { badRequest, notFound, unauthorized } from '../../lib/http-error.ts';
+import { badRequest, notFound } from '../../lib/http-error.ts';
 import { hashPassword, passwordStrengthError, verifyPassword } from '../../lib/password.ts';
 
 const MIN_PASSWORD_LENGTH = 6;
@@ -315,29 +315,28 @@ export async function resetPassword(id: string | number, newPassword: unknown) {
     return user;
 }
 
-/** Changement par l'utilisateur, avec vérification de l'ancien mot de passe */
-export async function changePassword(userId: number, oldPassword: unknown, newPassword: unknown) {
-    if (!oldPassword || !newPassword) throw badRequest('Ancien et nouveau mot de passe requis');
-    if (typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD_LENGTH) {
-        throw badRequest('Le mot de passe doit contenir au moins 6 caractères');
-    }
-    const user = await getUser(userId);
-    if (!user) throw notFound('Utilisateur introuvable');
-    const { ok } = await verifyPassword(String(oldPassword), user.password);
-    if (!ok) throw unauthorized('Ancien mot de passe incorrect');
-    await prisma.user.update({ where: { id: user.id }, data: { password: await hashPassword(newPassword) } });
-}
-
 /**
- * Changement depuis l'écran « Mon profil » ou à la connexion quand il est obligatoire (règles de complexité, sans
- * ancien mot de passe). Le nouveau mot de passe doit différer de l'actuel (mot de passe donné par un administrateur).
+ * Changement depuis l'écran « Mon profil » (mot de passe actuel vérifié : check) ou à la connexion quand il est
+ * obligatoire (check absent). Règles de complexité ; le nouveau mot de passe doit différer de l'actuel (mot de passe
+ * donné par un administrateur).
  */
-export async function changeProfilePassword(userId: number, newPassword: unknown) {
+export async function changeProfilePassword(
+    userId: number,
+    newPassword: unknown,
+    check?: { currentPassword: unknown }
+) {
+    if (check && (!check.currentPassword || typeof check.currentPassword !== 'string')) {
+        throw badRequest('Mot de passe actuel requis');
+    }
     if (!newPassword) throw badRequest('Nouveau mot de passe requis');
     const weakness = passwordStrengthError(newPassword);
     if (weakness) throw badRequest(weakness);
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true } });
     if (!user) throw notFound('Utilisateur introuvable');
+    // Erreur de saisie (400), comme les règles de complexité
+    if (check && !(await verifyPassword(String(check.currentPassword), user.password)).ok) {
+        throw badRequest('Mot de passe actuel incorrect');
+    }
     if ((await verifyPassword(String(newPassword), user.password)).ok) {
         throw badRequest('Le nouveau mot de passe doit être différent du mot de passe actuel');
     }

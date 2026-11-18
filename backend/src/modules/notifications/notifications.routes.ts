@@ -17,21 +17,13 @@ router.get('/email-queue/status/:batchId', requireAuth, h(ctrl.emailBatchStatus)
 router.post('/send-assignment-emails', requireAuth, h(ctrl.sendAssignmentEmails));
 router.post('/request-assignment', requireAuth, h(ctrl.requestAssignment));
 
-// Affectations en attente de notification
-router.post('/pending-notifications', requireAuth, h(ctrl.addPending));
-router.get('/pending-notifications/:sessionId', requireAuth, h(ctrl.listPending));
-router.delete('/pending-notifications/:sessionId', requireAuth, h(ctrl.deletePending));
-router.post('/send-assignment-notifications', requireAuth, h(ctrl.sendPendingNotifications));
-
 // Notifications des experts
 router.get('/notifications/count', requireAuth, h(ctrl.unreadCount));
 router.get('/notifications/list', requireAuth, h(ctrl.unreadList));
 router.post('/notifications/mark-read', requireAuth, h(ctrl.markRead));
-router.post('/notifications/create-batch', requireAuth, h(ctrl.createBatch));
 router.post('/notifications/clear-all', requireAdmin, h(ctrl.clearAll));
 
 // Teams
 router.post('/teams/test', requireAdmin, h(ctrl.teamsTest));
-router.post('/teams/notify', requireAuth, h(ctrl.teamsNotify));
 
 export default router;

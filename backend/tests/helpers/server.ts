@@ -146,24 +146,29 @@ async function completeInitialAdmin(server: TestServer) {
  * workDir : répertoire préparé à l'avance (base existante dans workDir/data) ;
  * initialAdmin : compte administrateur initial transmis par INITIAL_ADMIN_USERNAME / _PASSWORD, null pour démarrer
  * sans ces variables (compte par défaut), laissé tel quel (mot de passe à changer). Sans cette option : compte
- * ADMIN prêt à l'emploi.
+ * ADMIN prêt à l'emploi. nodeEnv : 'production' pour vérifier les contrôles de démarrage propres à la production.
  */
 export async function startServer({
     workDir = createWorkDir(),
-    initialAdmin
-}: { workDir?: string; initialAdmin?: Identifiants | null } = {}): Promise<TestServer> {
+    initialAdmin,
+    nodeEnv = 'test'
+}: {
+    workDir?: string;
+    initialAdmin?: Identifiants | null;
+    nodeEnv?: 'test' | 'production';
+} = {}): Promise<TestServer> {
     const standard = initialAdmin === undefined;
     const admin = standard ? ADMIN_INITIAL : initialAdmin;
     try {
         if (isLegacyEntry()) {
             // Ancienne version (comparaisons) : tables créées au démarrage par initDB, dont une partie seulement
             // au démarrage suivant sur une base neuve : deux démarrages successifs
-            const first = await bootServer(workDir, undefined, admin);
+            const first = await bootServer(workDir, undefined, admin, nodeEnv);
             await first.shutdown();
         } else {
             await prepareDatabase(workDir);
         }
-        const server = await bootServer(workDir, undefined, admin);
+        const server = await bootServer(workDir, undefined, admin, nodeEnv);
         if (standard && !isLegacyEntry()) await completeInitialAdmin(server);
         return server;
     } catch (err) {
@@ -177,7 +182,8 @@ export async function startServer({
 async function bootServer(
     workDir: string,
     previousPort: number | undefined,
-    initialAdmin: Identifiants | null
+    initialAdmin: Identifiants | null,
+    nodeEnv: 'test' | 'production'
 ): Promise<TestServer> {
     const port = previousPort ?? (await freePort());
     const baseUrl = `http://127.0.0.1:${port}`;
@@ -198,7 +204,7 @@ async function bootServer(
             USERPROFILE: process.env.USERPROFILE,
             LOCALAPPDATA: process.env.LOCALAPPDATA,
             ...(BROWSER_PATH ? { PUPPETEER_EXECUTABLE_PATH: BROWSER_PATH } : {}),
-            NODE_ENV: 'test',
+            NODE_ENV: nodeEnv,
             PORT: String(port),
             DB_PATH: path.join(workDir, 'data'),
             ...databaseEnv(databaseOf(workDir)),
@@ -229,7 +235,7 @@ async function bootServer(
         },
         async restart() {
             await server.shutdown();
-            return bootServer(workDir, port, initialAdmin);
+            return bootServer(workDir, port, initialAdmin, nodeEnv);
         },
         async stop() {
             await server.shutdown();

@@ -86,14 +86,32 @@ When('je saisis le nouveau mot de passe {string} dans mon profil', async ({ mond
     await monde.page.locator('#newPassword').fill(motDePasse);
 });
 
-When('je saisis le nouveau mot de passe {string} et sa confirmation dans mon profil', async ({ monde }, motDePasse) => {
-    monde.d.nouveauMotDePasse = motDePasse;
-    await monde.page.locator('#newPassword').fill(motDePasse);
-    await monde.page.locator('#confirmPassword').fill(motDePasse);
-});
+When(
+    'je saisis mon mot de passe actuel, le nouveau mot de passe {string} et sa confirmation dans mon profil',
+    async ({ monde }, motDePasse) => {
+        monde.d.nouveauMotDePasse = motDePasse;
+        await monde.page.locator('#currentPassword').fill(monde.d.compteEntete!.password);
+        await monde.page.locator('#newPassword').fill(motDePasse);
+        await monde.page.locator('#confirmPassword').fill(motDePasse);
+    }
+);
+
+When(
+    'je saisis le nouveau mot de passe {string} et sa confirmation sans le mot de passe actuel',
+    async ({ monde }, motDePasse) => {
+        await monde.page.locator('#newPassword').fill(motDePasse);
+        await monde.page.locator('#confirmPassword').fill(motDePasse);
+    }
+);
 
 Then('mon profil signale {string}', async ({ monde }, message) => {
     await expect(fenetre(monde.page)).toContainText(message);
+});
+
+When('je demande le changement du mot de passe de mon profil', async ({ monde }) => {
+    await fenetre(monde.page)
+        .getByRole('button', { name: /Changer le mot de passe/ })
+        .click();
 });
 
 When('je change le mot de passe de mon profil et confirme', async ({ monde }) => {

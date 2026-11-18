@@ -184,3 +184,38 @@ describe('E4 : dispense de double authentification liée à l’appareil', () =>
         expect((await client.post('/api/switch-profile', { profile: 'user' })).status).toBe(200);
     });
 });
+
+// Audit de sécurité, lot 2 : la limite de 5 essais par connexion se contournait en se reconnectant
+describe('Lot 2 : codes erronés', () => {
+    /** Cinq codes faux (jamais tirés : codes de 100000 à 999999) depuis une nouvelle connexion */
+    async function cinqErreurs(user: { username: string; password: string }) {
+        const { client } = await connexion(user, 'user');
+        for (let i = 0; i < 5; i++) {
+            expect((await client.post('/api/mfa/verify', { code: '000000' })).status).toBe(401);
+        }
+        return client;
+    }
+
+    it('code email supprimé après 5 erreurs', async () => {
+        const user = await nouveauCompte({ is_user: 1 });
+        await configurer('email');
+        const { client } = await connexion(user, 'user');
+        const code = await codeEmail(client, user.email);
+        for (let i = 0; i < 5; i++) {
+            expect((await client.post('/api/mfa/verify', { code: '000000' })).status).toBe(401);
+        }
+        const { client: reprise } = await connexion(user, 'user');
+        expect((await reprise.post('/api/mfa/verify', { code })).status).toBe(401);
+    });
+
+    it('10 codes erronés en 15 minutes : compte bloqué, même avec un bon code', async () => {
+        const user = await nouveauCompte({ is_user: 1 });
+        await configurer('email');
+        await cinqErreurs(user);
+        await cinqErreurs(user);
+        const { client } = await connexion(user, 'user');
+        const r = await client.post('/api/mfa/verify', { code: await codeEmail(client, user.email) });
+        expect(r.status).toBe(429);
+        expect(r.data.error).toMatch(/Trop de codes erronés pour ce compte/);
+    });
+});

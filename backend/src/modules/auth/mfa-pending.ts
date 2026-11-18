@@ -33,6 +33,34 @@ export function requireMfaPending(req: Request, res: Response, next: NextFunctio
     next();
 }
 
+// ---------- Codes erronés par compte ----------
+// La limite par connexion en attente se contourne en se reconnectant (mot de passe connu) : codes erronés aussi
+// comptés par compte, sur une fenêtre glissante. En mémoire : remis à zéro au redémarrage, propre à chaque instance.
+
+const ACCOUNT_WINDOW_MS = 15 * 60 * 1000;
+const ACCOUNT_MAX_FAILURES = 10;
+const accountFailures = new Map<number, number[]>();
+
+/** Codes erronés du compte dans la fenêtre (les plus anciens sont oubliés) */
+function recentFailures(userId: number) {
+    const now = Date.now();
+    const recent = (accountFailures.get(userId) ?? []).filter(t => now - t < ACCOUNT_WINDOW_MS);
+    if (recent.length) accountFailures.set(userId, recent);
+    else accountFailures.delete(userId);
+    return recent;
+}
+
+/** Compte bloqué : trop de codes erronés dans les 15 dernières minutes */
+export const mfaAccountLocked = (userId: number) => recentFailures(userId).length >= ACCOUNT_MAX_FAILURES;
+
+export function recordMfaFailure(userId: number) {
+    accountFailures.set(userId, [...recentFailures(userId), Date.now()]);
+}
+
+export function clearMfaFailures(userId: number) {
+    accountFailures.delete(userId);
+}
+
 /**
  * Comptabilise un essai de code ; au-delà du maximum, la connexion en attente est annulée.
  * @returns false si le nombre maximal d'essais est dépassé

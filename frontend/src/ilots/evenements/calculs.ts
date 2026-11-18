@@ -1,5 +1,6 @@
 // Événements : modèles, filtres, regroupement par année et par mois, mises en forme et exports (sans affichage)
 import type { Evenement, Localisation, TypeEvenement } from '@/api/evenements';
+import { celluleCsv } from '@/outils/csv';
 import { iconeDuLibelle, MODELES } from '@/outils/modeles-evenements';
 
 export const MOIS = [
@@ -310,13 +311,20 @@ export function exportCsv(events: Evenement[]) {
             internes,
             externes
         ]
-            .map(v => `"${String(v).replace(/"/g, '""')}"`)
+            .map(celluleCsv)
             .join(',');
     });
     return `\uFEFF${[ENTETES.join(','), ...lignes].join('\n')}`;
 }
 
-/** Page HTML autonome (tableau) */
+/** Couleur d'un type d'événement insérée dans un attribut style : code hexadécimal seulement, sinon la valeur par défaut */
+const couleurSure = (couleur: unknown, defaut: string) =>
+    typeof couleur === 'string' && /^#[0-9a-f]{3,8}$/i.test(couleur) ? couleur : defaut;
+
+/**
+ * Page HTML autonome (tableau). Fichier ouvert hors de l'application (sans sa politique de contenu) : toutes les
+ * données sont échappées, participants externes compris (saisis par tout utilisateur)
+ */
 export function exportHtml(events: Evenement[], aujourdhui = new Date()) {
     const lignes = events
         .map(ev => {
@@ -335,9 +343,9 @@ export function exportHtml(events: Evenement[], aujourdhui = new Date()) {
                 cfg = {};
             }
             const badge = aUnType(ev)
-                ? `<span style="background:${cfg.bgColor || '#607d8b'};color:${cfg.textColor || '#fff'};padding:2px 8px;border-radius:4px;font-size:11px;">${echapper(libelleCourt(ev))}</span>`
+                ? `<span style="background:${couleurSure(cfg.bgColor, '#607d8b')};color:${couleurSure(cfg.textColor, '#fff')};padding:2px 8px;border-radius:4px;font-size:11px;">${echapper(libelleCourt(ev))}</span>`
                 : '';
-            return `<tr><td>${badge}${aUnType(ev) ? ` ${echapper(ev.type_long)}` : ''}</td><td>${echapper(ev.label || '')}</td><td>${ev.start_date || ''}</td><td>${ev.end_date || ''}</td><td>${echapper(localisationDe(ev))}</td><td>${internes}</td><td>${externes}</td></tr>`;
+            return `<tr><td>${badge}${aUnType(ev) ? ` ${echapper(ev.type_long)}` : ''}</td><td>${echapper(ev.label || '')}</td><td>${ev.start_date || ''}</td><td>${ev.end_date || ''}</td><td>${echapper(localisationDe(ev))}</td><td>${echapper(internes)}</td><td>${echapper(externes)}</td></tr>`;
         })
         .join('');
     return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Événements exportés</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px;}table{border-collapse:collapse;width:100%;}th{background:#1565c0;color:#fff;padding:8px;text-align:left;}td{border:1px solid #ddd;padding:6px;}tr:nth-child(even){background:#f5f5f5;}</style></head><body><h2>Événements — export du ${aujourdhui.toLocaleDateString('fr-FR')}</h2><table><thead><tr>${ENTETES.map(e => `<th>${e}</th>`).join('')}</tr></thead><tbody>${lignes}</tbody></table></body></html>`;

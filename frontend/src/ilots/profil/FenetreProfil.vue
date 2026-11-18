@@ -101,6 +101,7 @@ function basculerTheme(actif: boolean) {
 
 // ── Mot de passe ─────────────────────────────────────────────────────────────
 
+const actuel = ref('');
 const nouveau = ref('');
 const confirmation = ref('');
 const messageMotDePasse = ref<{ texte: string; ok: boolean } | null>(null);
@@ -110,13 +111,14 @@ const correspondance = computed(() => (confirmation.value ? { ok: nouveau.value 
 async function changerMotDePasse() {
     messageMotDePasse.value = null;
     const erreur = (texte: string) => (messageMotDePasse.value = { texte, ok: false });
-    if (!nouveau.value || !confirmation.value) return erreur('Veuillez remplir tous les champs');
+    if (!actuel.value || !nouveau.value || !confirmation.value) return erreur('Veuillez remplir tous les champs');
     if (!regle.value?.ok) return erreur('Le mot de passe doit contenir au moins 8 caractères et 1 caractère spécial');
     if (nouveau.value !== confirmation.value) return erreur('Les mots de passe ne correspondent pas');
     if (!(await confirmer('Êtes-vous sûr de vouloir changer votre mot de passe ?', 'Confirmer', { danger: false })))
         return;
     try {
-        await apiProfil.changerMotDePasse(nouveau.value);
+        await apiProfil.changerMotDePasse(actuel.value, nouveau.value);
+        actuel.value = '';
         nouveau.value = '';
         confirmation.value = '';
         messageMotDePasse.value = { texte: '✅ Mot de passe changé avec succès !', ok: true };
@@ -207,6 +209,7 @@ async function ouvrir() {
 function fermer() {
     ouverte.value = false;
     photoChoisie.value = null;
+    actuel.value = '';
     nouveau.value = '';
     confirmation.value = '';
     listeOnglets.value = false;
@@ -291,6 +294,16 @@ onBeforeUnmount(() => {
 
         <!-- Mot de passe -->
         <h3 class="gp-profil__rubrique gp-profil__rubrique--mdp">🔒 Changer mon mot de passe</h3>
+        <div class="gp-profil__champ">
+            <label for="currentPassword">Mot de passe actuel</label>
+            <input
+                id="currentPassword"
+                v-model="actuel"
+                type="password"
+                name="current-password"
+                autocomplete="current-password"
+            />
+        </div>
         <div class="gp-profil__champ">
             <label for="newPassword">Nouveau mot de passe</label>
             <input

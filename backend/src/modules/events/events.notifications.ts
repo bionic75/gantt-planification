@@ -53,7 +53,7 @@ export async function notifyEventCreated(
             const icsContent = buildICS({
                 uid: generateICSUid(),
                 summary: label,
-                description: `Demande de mobilisation\\nOrganisateur: ${creatorFullName}\\nLieu: ${locLabel || 'Non précisée'}`,
+                description: `Demande de mobilisation\nOrganisateur: ${creatorFullName}\nLieu: ${locLabel || 'Non précisée'}`,
                 location: locLabel || 'Non précisée',
                 dtstart: formatDateICS(startDate, 8, 0),
                 dtend: formatDateICS(endDate || startDate, 18, 0),

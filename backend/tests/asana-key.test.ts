@@ -82,7 +82,9 @@ describe('clé du jeton Asana', () => {
         const svc = await load({ secret: '' });
         const key = path.join(dir, 'data', '.asana_key');
         fs.mkdirSync(key, { recursive: true });
-        expect(() => svc.asanaEncrypt('x')).toThrow(/Clé de chiffrement Asana inaccessible/);
+        expect(() => svc.asanaEncrypt('x')).toThrow(
+            /Clé de chiffrement des secrets \(jeton Asana, mot de passe SMTP\) inaccessible/
+        );
         expect(svc.asanaDecrypt('aa:bb:cc')).toBeNull();
     });
 });

@@ -76,13 +76,17 @@ export async function prepareSignedPdf(id: unknown) {
     return pdfFilename;
 }
 
-/** PDF signé sauvegardé ; régénéré (et sauvegardé) s'il manque sur le disque */
-export async function savedPdf(name: string) {
+/**
+ * PDF signé sauvegardé ; régénéré (et sauvegardé) s'il manque sur le disque
+ * @param assertAccess contrôle d'accès, appelé avec le CRA dont c'est le PDF (null : fichier sans CRA connu)
+ */
+export async function savedPdf(name: string, assertAccess: (cra: { user_id: number } | null) => void) {
     const filename = path.basename(name);
     const filepath = path.join(PDF_DIR, filename);
+    const cra = await service.getCraWithExpert({ pdf_filename: filename });
+    assertAccess(cra);
     if (fs.existsSync(filepath)) return { filename, buffer: fs.readFileSync(filepath) };
 
-    const cra = await service.getCraWithExpert({ pdf_filename: filename });
     if (!cra) throw notFound('CRA introuvable pour ce fichier');
     if (!puppeteer) throw new HttpError(503, 'Puppeteer non disponible pour la régénération');
     try {
