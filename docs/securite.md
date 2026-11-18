@@ -232,6 +232,8 @@ HTTPS), `no-new-privileges`, aucune capacité Linux, plafonds de mémoire et de 
 ## CI et déploiement
 
 - Actions GitHub épinglées par empreinte de commit (SHA) ; Dependabot (actions, npm, image Docker) chaque semaine.
+  Versions majeures de `node` (image), `@types/node` et `typescript` ignorées par Dependabot : elles font l'objet de
+  lots décidés (une image Node seule divergerait de la CI ; `typescript-eslint` limite la version de TypeScript).
 - Déploiement : clé d'hôte SSH de la VM vérifiée (secret `SAMU_TOOLS_HOST_FINGERPRINT`, obligatoire) ; version saisie
   à la main contrôlée (`X.Y.Z`) avant d'être utilisée dans le script exécuté sur la VM ; jeton du registre retiré de la
   VM après le téléchargement de l'image (`docker logout`) ; workflow manuel sans droits sur le dépôt
