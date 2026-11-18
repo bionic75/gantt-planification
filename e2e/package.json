@@ -32,7 +32,7 @@
     "mailparser": "^3.12.4",
     "monocart-reporter": "2.14.1",
     "playwright-bdd": "9.2.1",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=22.22.2"
