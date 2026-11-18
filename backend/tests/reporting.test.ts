@@ -1,7 +1,7 @@
 // Reporting et exports : disponibilités, astreintes / HNO, carte des événements, exports CSV
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ADMIN, startServer } from './helpers/server.ts';
-import { createExpert, createResource, loginAs } from './helpers/fixtures.ts';
+import { createExpert, createResource, createUser, loginAs } from './helpers/fixtures.ts';
 import type { TestServer } from './helpers/server.ts';
 import type { Client } from './helpers/client.ts';
 
@@ -16,6 +16,15 @@ afterAll(() => server?.stop());
 
 const key = (resourceId: any, type: any, date: string, period: any) =>
     `${resourceId}_${type}_${date}${period ? `_${period}` : ''}`;
+
+// Audit de sécurité, lot 4 : rapport de l'onglet Reporting, mêmes droits que les autres rapports
+it('rapport astreintes / HNO réservé aux profils ayant accès au reporting', async () => {
+    const user = await createUser(admin, { is_user: 1 });
+    const client = await loginAs(server, user, 'user');
+    const corps = { startMonth: 0, startYear: 2027, endMonth: 0, endYear: 2027, expertIds: [] };
+    expect((await client.post('/api/reporting/hno-astreintes', corps)).status).toBe(403);
+    expect((await admin.post('/api/reporting/hno-astreintes', corps)).status).not.toBe(403);
+});
 
 describe('disponibilités et affectations', () => {
     it('demi-journées comptées par mois, anciennes clés sans demi-journée incluses', async () => {

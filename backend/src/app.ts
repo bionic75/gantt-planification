@@ -38,13 +38,7 @@ function securityHeaders() {
                 // posés en JavaScript admis) ; développement : <style> injectés par le serveur Vite ; aide en ligne :
                 // styles en ligne admis par sa route (pages.routes.ts)
                 styleSrc: ["'self'", ...(modeFrontend() === 'vite' ? ["'unsafe-inline'"] : [])],
-                imgSrc: [
-                    "'self'",
-                    'data:',
-                    'blob:',
-                    'https://*.tile.openstreetmap.org',
-                    'https://cdnjs.cloudflare.com'
-                ],
+                imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
                 fontSrc: ["'self'", 'data:'],
                 connectSrc: [
                     "'self'",

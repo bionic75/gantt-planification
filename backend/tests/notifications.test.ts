@@ -297,10 +297,8 @@ describe('Teams', () => {
         });
         await smtp.waitFor(/To: canal@teams\.test[\s\S]*Test de notification/, 15000);
 
-        await admin.put('/api/settings', {
-            key: 'automation_3_config',
-            value: JSON.stringify({ enabled: true, notifications: ['evenement'], teamsEmail: 'canal@teams.test' })
-        });
+        const config = { enabled: true, notifications: ['evenement'], teamsEmail: 'canal@teams.test' };
+        expect((await admin.post('/api/automation/config/3', { config })).status).toBe(200);
         // Notification émise par le serveur à la création d'un événement (textes recherchés en ASCII : le puits SMTP de
         // test ne décode pas l'UTF-8)
         await admin.post('/api/my-custom-events', { startDate: '2027-06-20', label: 'Evenement Teams' });

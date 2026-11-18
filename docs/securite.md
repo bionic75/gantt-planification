@@ -31,7 +31,9 @@ Code : `securityHeaders()` dans `backend/src/app.ts` (helmet).
   (`object-src 'none'`), affichage dans un cadre limité à l'application (`frame-ancestors 'self'`). Exceptions :
   l'aide en ligne (`/aide.html`, contenu statique, personnalisable) admet les styles en ligne ; le développement
   (serveur Vite) aussi, pour ses `<style>` injectés. Une aide en ligne personnalisée ne peut pas contenir de script :
-  le bouton « Retour à l'application » (classe `back-btn`) est géré par le point d'entrée de l'aide. Les scénarios e2e
+  le bouton « Retour à l'application » (classe `back-btn`) est géré par le point d'entrée de l'aide ; ses nouveautés,
+  reprises dans la fenêtre affichée après la connexion, sont en plus filtrées par DOMPurify
+  (`frontend/src/outils/html-sur.ts`). Les scénarios e2e
   échouent à la moindre violation de la politique (`e2e/support/fixtures.js`).
   **Nouveau domaine externe** (CDN, service cartographique) : l'ajouter à la directive concernée, sinon le
   navigateur le bloque (message « violates the following Content Security Policy directive » dans la console).
@@ -97,6 +99,12 @@ Les codes de double authentification ont aussi leurs propres limites (voir « Do
 - Profil « utilisateur » : planning en lecture seule (modifications refusées, `403`).
 - Profil « expert » : seule la ligne de sa ressource est modifiable dans le planning. L'identifiant de ressource d'une
   cellule n'est accepté qu'écrit en chiffres (« 12 ») : une clé mal formée (« 1e1 ») est ignorée.
+- Saisie des astreintes / HNO (création, modification) : profils administrateur et expert, comme le bouton « Gérer
+  mes / les astreintes/HNO » de l'interface.
+- Rapport astreintes / HNO : même contrôle que les autres rapports de l'onglet Reporting (`requireReportingAccess`).
+- Profil RH : lecture de tous les CRA (rôle métier : suivi et diffusion), sans les modifier.
+- Liste des connectés (`/api/active-sessions`) : identifiant de connexion (`username`) renvoyé au seul
+  administrateur ; les autres profils voient nom, prénom, photo et profil.
 
 ## Double authentification
 
@@ -123,6 +131,9 @@ l'administration : profils soumis (le profil RH ne l'est jamais), méthode, fré
     - 10 codes erronés par compte en 15 minutes : au-delà, le compte est bloqué (`429`) jusqu'à la fin de la fenêtre,
       même avec un bon code (se reconnecter ne remet pas le compteur à zéro). Compteur en mémoire, par processus ;
     - un code email faux 5 fois est supprimé : il faut en demander un nouveau.
+- Code de l'application d'authentification (TOTP) : accepté sur 90 secondes (fenêtre courante et adjacentes), mais une
+  seule fois : un code déjà accepté, ou plus ancien que le dernier accepté pour ce compte, est refusé (rejeu d'un code
+  intercepté ou vu par-dessus l'épaule). Mémoire du serveur, par processus.
 
 ## Données saisies dans les emails et les PDF
 
@@ -134,8 +145,10 @@ l'administration : profils soumis (le profil RH ne l'est jamais), méthode, fré
 - Envoi du calendrier par email : destinataire lu en base (utilisateur rattaché à la ressource). Invitations
   d'affectation : adresses limitées aux utilisateurs rattachés aux ressources concernées.
 - Noms des PDF de CRA : caractères interdits dans un nom de fichier remplacés (pas d'écriture hors du répertoire).
-- PDF de CRA enregistrés (`/api/cra/pdf/saved/:nom`) : mêmes droits que la lecture du CRA (un expert ne lit que les
-  siens) ; un fichier sans CRA correspondant est réservé aux profils administrateur et RH.
+- PDF de CRA enregistrés (`/api/cra/pdf-saved/:nom`) : mêmes droits que la lecture du CRA (un expert ne lit que les
+  siens) ; un fichier sans CRA correspondant est réservé aux profils administrateur et RH. Journal de diffusion d'un
+  CRA (`/api/cra/:id/diffusion-log`, adresses des destinataires) : mêmes droits.
+- Info-bulles des cartes (Leaflet) : données saisies insérées comme texte ou échappées.
 - Invitations calendrier (ICS, `backend/src/lib/ics.ts`) : libellé, description, lieu et noms échappés (RFC 5545) ;
   une donnée saisie ne peut pas ajouter de ligne au fichier (organisateur, rappel, autre événement).
 - Expéditeur des invitations et des demandes d'affectation : le compte connecté (nom et adresse de la session),
@@ -161,6 +174,27 @@ l'administration : profils soumis (le profil RH ne l'est jamais), méthode, fré
 
 `GET /api/settings` renvoie à l'administrateur tous les paramètres sauf les secrets (`asana_token_enc`), et aux autres
 profils seulement ceux dont l'interface a besoin (favicon, aide publiée, inactivité, sauvegarde automatique).
+
+`POST` / `PUT /api/settings` (administrateur) n'écrit que les paramètres des écrans de l'administration (favicon,
+inactivité, publication de l'aide, version, workflow CRA) et les clés `test_…` des tests automatisés, jamais lues par
+l'application. Les autres paramètres (jeton Asana, automatisations, accès aux onglets, thème…) ont leur propre route
+et ses contrôles ; une clé interne ne peut pas être remplacée.
+
+Filtre de noms des projets Asana (expression régulière saisie par l'administrateur) : 200 caractères au plus,
+quantificateurs imbriqués (« (a+)+ ») refusés, car ils peuvent bloquer le serveur (`backend/src/lib/regex.ts`).
+
+## Sauvegardes `.gpdump`
+
+Restauration réservée à l'administrateur : fichier de 2 Go au plus, contenu décompressé (base et PDF) de 10 Go au plus
+et tailles annoncées vérifiées avant toute extraction (un petit fichier piégé ne peut pas remplir le disque) ; base du
+fichier ouverte avec `trusted_schema` désactivé (ses vues et déclencheurs ne peuvent pas appeler de fonctions SQL).
+
+## Données conservées dans le navigateur
+
+- Identifiants mémorisés sur l'écran de connexion (`localStorage`) : jamais de mot de passe ; confort voulu.
+- Fichier importé dans l'outil d'analyse (IndexedDB) : effacé à la fin de la session (déconnexion, inactivité,
+  session fermée).
+- Préférences d'affichage (mode sombre, colonnes, ordre des onglets…) : sans donnée sensible.
 
 ## API publique
 

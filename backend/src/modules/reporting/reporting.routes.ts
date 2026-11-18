@@ -68,7 +68,8 @@ router.get(
 
 router.post(
     '/reporting/hno-astreintes',
-    requireAuth,
+    // Rapport de l'onglet Reporting : mêmes droits que les autres rapports de l'onglet
+    requireReportingAccess,
     h(async (req, res) => {
         res.json(await service.hnoAstreintesReport(req.body));
     })

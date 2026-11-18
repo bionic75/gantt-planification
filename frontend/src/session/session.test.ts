@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ecouter, emettre } from '@/evenements';
+import { fichierConserve } from '@/ilots/analyse/stockage';
 import {
     deconnecter,
     etatSession,
@@ -98,6 +99,14 @@ describe('déconnexion', () => {
         expect(etatSession.deconnexion).toBe(false);
         expect(etatSession.ouverte).toBe(false);
         expect(messages).toEqual([undefined]);
+    });
+
+    // Audit de sécurité, lot 4 : données de travail de l'outil d'analyse non conservées après la session
+    it('fichier de l’outil d’analyse effacé du navigateur', async () => {
+        const supprimer = vi.spyOn(fichierConserve, 'supprimer').mockResolvedValue(undefined);
+        await deconnecter();
+        expect(supprimer).toHaveBeenCalled();
+        supprimer.mockRestore();
     });
 
     it('échec : message affiché, session gardée', async () => {

@@ -186,7 +186,11 @@ async function dessinerDepartements() {
                 onEachFeature: (f, couche) => {
                     const dep = f.properties as { code: string; nom: string };
                     const c = couleurs.get(dep.code);
-                    if (c) couche.bindTooltip(`${dep.nom} : ${c.statut} (${c.samu.join(', ')})`, { sticky: true });
+                    if (!c) return;
+                    // Texte et non HTML : statut et noms de SAMU sont saisis dans l'application
+                    const texte = document.createElement('span');
+                    texte.textContent = `${dep.nom} : ${c.statut} (${c.samu.join(', ')})`;
+                    couche.bindTooltip(texte, { sticky: true });
                 }
             }
         ).addTo(cible);

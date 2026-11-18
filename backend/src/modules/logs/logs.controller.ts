@@ -3,9 +3,14 @@ import * as service from './logs.service.ts';
 
 import type { Request, Response } from 'express';
 
-/** Utilisateurs connectés (accessible à tous les utilisateurs authentifiés) */
+/**
+ * Utilisateurs connectés (accessible à tous les utilisateurs authentifiés). Identifiant de connexion (username) réservé
+ * à l'administrateur : les autres profils voient nom, prénom, photo et profil.
+ */
 export async function activeSessions(req: Request, res: Response) {
-    res.json({ activeUsers: await service.listActiveUsers() });
+    const users = await service.listActiveUsers();
+    const isAdmin = req.session.activeProfile === 'admin';
+    res.json({ activeUsers: isAdmin ? users : users.map(({ username: _username, ...u }) => u) });
 }
 
 export async function connectionsReport(req: Request, res: Response) {

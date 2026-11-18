@@ -112,8 +112,13 @@ describe('journaux', () => {
         ]);
         expect((await admin.get('/api/reporting/connections?dateStart=2000-01-01')).status).toBe(400);
 
+        // Audit de sécurité, lot 4 : identifiant de connexion des connectés réservé à l'administrateur
         const active = (await client.get('/api/active-sessions')).data.activeUsers;
-        expect(active.find((a: any) => a.userId === user.id)).toMatchObject({ username: user.username, nom: user.nom });
+        const vu = active.find((a: any) => a.userId === user.id);
+        expect(vu).toMatchObject({ nom: user.nom });
+        expect(vu).not.toHaveProperty('username');
+        const parAdmin = (await admin.get('/api/active-sessions')).data.activeUsers;
+        expect(parAdmin.find((a: any) => a.userId === user.id)).toMatchObject({ username: user.username });
 
         // Journal des actions : modifications du planning
         const res = await admin.post('/api/resources', {
@@ -224,9 +229,10 @@ describe('configuration email', () => {
 describe('paramètres et configuration', () => {
     // Audit de sécurité, lot 2 : paramètres de l'administration (configurations, jeton chiffré) lus par tout compte
     it('lecture des paramètres : liste réduite hors administration, secrets jamais renvoyés', async () => {
-        const key = unique('param');
+        const key = unique('test_param');
         await admin.post('/api/settings', { key, value: 'interne' });
-        await admin.post('/api/settings', { key: 'asana_token_enc', value: 'aa:bb:cc' });
+        // Jeton Asana enregistré par sa propre route (chiffré)
+        expect((await admin.put('/api/affectation/asana/config', { token: 'jeton-de-test' })).status).toBe(200);
         const all = (await admin.get('/api/settings')).data;
         expect(all[key]).toBe('interne');
         expect(all).not.toHaveProperty('asana_token_enc');
@@ -237,11 +243,19 @@ describe('paramètres et configuration', () => {
         expect(visible).toMatchObject({ favicon: expect.any(String), inactivity_timeout: expect.any(String) });
         expect(visible).not.toHaveProperty(key);
         expect(visible).not.toHaveProperty('asana_token_enc');
-        await admin.post('/api/settings', { key: 'asana_token_enc', value: '' });
+    });
+
+    // Audit de sécurité, lot 4 : la route générique n'écrit que les paramètres des écrans de l'administration
+    it('écriture des paramètres : clés de l’administration seulement', async () => {
+        for (const key of ['asana_token_enc', 'app_affectation_seeded', 'tab_access_config', 'automation_3_config']) {
+            const r = await admin.post('/api/settings', { key, value: 'x' });
+            expect(r.status, key).toBe(400);
+        }
+        expect((await admin.put('/api/settings', { key: 'favicon', value: 'calendrier' })).status).toBe(200);
     });
 
     it('paramètres, accès aux onglets, thème, version', async () => {
-        const key = unique('param');
+        const key = unique('test_param');
         expect((await admin.post('/api/settings', { key, value: 'x' })).data).toEqual({
             success: true,
             key,

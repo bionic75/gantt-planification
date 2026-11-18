@@ -405,7 +405,7 @@ export async function verifyMfa(req: Request, res: Response) {
     let valid = methods.email && (await mfa.consumeEmailCode(userId, code));
     if (!valid && methods.totp) {
         const secret = await mfa.getTotpSecret(userId);
-        valid = !!secret && mfa.verifyTotp(secret, code);
+        valid = !!secret && mfa.verifyTotp(userId, secret, code);
     }
     if (!valid) throw wrongCode(userId);
     clearMfaFailures(userId);
@@ -483,7 +483,7 @@ export async function confirmTotp(req: Request, res: Response) {
     await assertTotpEnrolmentAllowed(pending);
     if (!secret) throw badRequest('Aucune configuration TOTP en cours.');
     assertMfaAttempt(req, userId);
-    if (!mfa.verifyTotp(secret, code)) throw wrongCode(userId, 'Code invalide');
+    if (!mfa.verifyTotp(userId, secret, code)) throw wrongCode(userId, 'Code invalide');
     clearMfaFailures(userId);
 
     await mfa.saveTotpSecret(userId, secret);

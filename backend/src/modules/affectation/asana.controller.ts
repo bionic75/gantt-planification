@@ -1,5 +1,6 @@
 // Import des déploiements depuis Asana : fichier CSV exporté, ou API (jeton chiffré, espace de travail, équipe)
 import { badRequest, HttpError, notFound } from '../../lib/http-error.ts';
+import { hasNestedQuantifier } from '../../lib/regex.ts';
 import { samuNumber as affSamuNumber } from '../../lib/samu.ts';
 import { logUserAction } from '../../services/action-log.ts';
 import { deleteSettings } from '../../services/settings.ts';
@@ -97,10 +98,21 @@ export async function getConfig(req: Request, res: Response) {
     });
 }
 
+/** Longueur maximale du filtre de nom des projets */
+const MAX_NAME_FILTER_LENGTH = 200;
+
 /** Jeton (chiffré), espace de travail, équipe et filtre de nom des projets */
 export async function saveConfig(req: Request, res: Response) {
     const b = req.body || {};
     if (typeof b.nameFilter === 'string' && b.nameFilter.trim()) {
+        if (b.nameFilter.length > MAX_NAME_FILTER_LENGTH) {
+            throw badRequest(`Filtre de nom trop long (${MAX_NAME_FILTER_LENGTH} caractères maximum)`);
+        }
+        if (hasNestedQuantifier(b.nameFilter)) {
+            throw badRequest(
+                'Filtre de nom refusé : quantificateurs imbriqués, comme « (a+)+ », qui peuvent bloquer le serveur'
+            );
+        }
         try {
             new RegExp(b.nameFilter, 'i');
         } catch {

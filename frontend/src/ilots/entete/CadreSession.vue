@@ -6,6 +6,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { api } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
 import { ecouter } from '@/evenements';
+import { htmlSur } from '@/outils/html-sur';
 import { sansStyleEnLigne, vStylesEnLigne } from '@/outils/styles-en-ligne';
 import { useSessionStore } from '@/stores/session';
 import { appliquerFavicon, CLE_CONNEXION_RECENTE, extraireNouveautes } from './cadre';
@@ -49,7 +50,8 @@ async function afficherNouveautes(p: Parametres) {
     } catch {
         /* contenu par défaut */
     }
-    nouveautes.value = { version, contenu };
+    // Aide personnalisable par l'administration : HTML filtré avant affichage
+    nouveautes.value = { version, contenu: htmlSur(contenu) };
 }
 
 function aideComplete() {
@@ -79,7 +81,7 @@ onBeforeUnmount(arreter);
         :title="`🆕 Nouveautés de la version ${nouveautes?.version ?? ''}`"
         @close="nouveautes = null"
     >
-        <!-- Contenu de l'aide en ligne (aide.html, personnalisable par l'administration), repris tel quel -->
+        <!-- Contenu de l'aide en ligne (aide.html, personnalisable par l'administration), filtré par DOMPurify -->
         <!-- eslint-disable vue/no-v-html -- bloc de l'aide de l'application (décision du lot 6.2b) -->
         <div
             id="helpVersionModalContent"

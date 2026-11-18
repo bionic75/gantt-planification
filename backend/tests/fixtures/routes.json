@@ -1322,7 +1322,7 @@
     {
         "method": "POST",
         "path": "/api/reporting/hno-astreintes",
-        "guard": "auth"
+        "guard": "reporting"
     },
     {
         "method": "POST",

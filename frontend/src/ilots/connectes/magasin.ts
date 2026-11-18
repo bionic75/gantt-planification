@@ -65,7 +65,7 @@ export const PROFILS: Record<string, { libelle: string; icone: string }> = {
 };
 
 export const nomConnecte = (u: Pick<UtilisateurConnecte, 'prenom' | 'nom' | 'username'>) =>
-    `${u.prenom || ''} ${u.nom || ''}`.trim() || u.username;
+    `${u.prenom || ''} ${u.nom || ''}`.trim() || u.username || 'Utilisateur';
 
 /** Initiales d'un avatar : trigramme, à défaut initiales du prénom et du nom */
 export const initialesConnecte = (u: Pick<UtilisateurConnecte, 'trigramme' | 'prenom' | 'nom'>) =>

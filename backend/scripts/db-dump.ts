@@ -16,6 +16,11 @@ import { getSetting } from '../src/services/settings.ts';
 const MAGIC = 'GPDUMP01';
 const FORMAT_VERSION = 1;
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+/**
+ * Taille décompressée maximale (base + PDF) : un petit fichier gzip piégé (« bombe zip ») ne peut pas remplir le disque
+ * du serveur. Une vraie sauvegarde (base et PDF des CRA) en est très loin.
+ */
+const MAX_EXTRACTED_BYTES = 10 * 1024 * 1024 * 1024;
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 const PDF_DIR = './data/pdfs';
 /**
@@ -62,10 +67,14 @@ function describeDb(d: any) {
     return { tables, schema };
 }
 
-/** Exécute une fonction sur une connexion SQLite dédiée, fermée ensuite */
+/**
+ * Exécute une fonction sur une connexion SQLite dédiée, fermée ensuite. trusted_schema désactivé : une base venue d'un
+ * fichier envoyé (dump) ne peut pas faire exécuter de fonctions SQL par ses vues, déclencheurs ou index.
+ */
 function withDb<T>(file: any, options: any, fn: (d: any) => T): T {
     const d = new Database(file, options);
     try {
+        d.pragma('trusted_schema = OFF');
         return fn(d);
     } finally {
         d.close();
@@ -169,6 +178,16 @@ async function readManifest(reader: any) {
     if (raw.length < len) throw new Error('Fichier tronqué.');
     const manifest = JSON.parse(raw.toString('utf8'));
     if (manifest.format !== FORMAT_VERSION) throw new Error(`Format de dump non supporté (${manifest.format}).`);
+    // Tailles annoncées : entiers positifs, total plafonné (l'extraction n'écrit jamais plus que ces tailles)
+    const sizes = [
+        manifest.db?.size,
+        ...(Array.isArray(manifest.files) ? manifest.files : []).map((f: any) => f?.size)
+    ];
+    if (!sizes.every(s => Number.isSafeInteger(s) && s >= 0))
+        throw new Error('Fichier invalide : tailles incorrectes.');
+    if (sizes.reduce((a, b) => a + b, 0) > MAX_EXTRACTED_BYTES) {
+        throw new Error('Fichier invalide : contenu décompressé trop volumineux (max 10 Go).');
+    }
     return manifest;
 }
 

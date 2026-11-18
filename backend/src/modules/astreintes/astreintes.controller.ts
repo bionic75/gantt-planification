@@ -49,8 +49,16 @@ export async function experts(req: Request, res: Response) {
     res.json(await service.listExperts());
 }
 
+/** Même règle que l'interface (« Gérer mes / les astreintes/HNO ») : profils administrateur et expert */
+function requireAstreintesProfile(req: Request) {
+    const profile = req.session.activeProfile;
+    if (profile !== 'admin' && profile !== 'expert')
+        throw forbidden('Saisie des astreintes non autorisée pour ce profil');
+}
+
 /** Création : pour soi, ou pour un expert par un administrateur ; notification Teams */
 export async function create(req: Request, res: Response) {
+    requireAstreintesProfile(req);
     const target = isAdmin(req) ? toInt(req.body.user_id) || userId(req) : userId(req);
     const id = await service.createLine(req.body, target);
     const { type, date_debut, date_fin, heure_debut, heure_fin } = req.body;
@@ -65,6 +73,7 @@ export async function create(req: Request, res: Response) {
 }
 
 export async function update(req: Request, res: Response) {
+    requireAstreintesProfile(req);
     await service.updateLine(req.params.id, req.body, viewer(req));
     res.json({ message: 'Astreinte/HNO modifiée' });
 }

@@ -298,7 +298,11 @@ export async function diffuse(req: Request, res: Response) {
     res.json({ success: true, sent });
 }
 
+/** Destinataires et état des envois : mêmes droits que la lecture du CRA */
 export async function diffusionLog(req: Request, res: Response) {
+    const cra = await service.getCra(req.params.id);
+    if (!cra) throw notFound('CRA introuvable');
+    assertCanRead(req, cra);
     res.json(await service.getDiffusionLog(req.params.id));
 }
 

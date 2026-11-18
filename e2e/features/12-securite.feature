@@ -16,15 +16,15 @@ Fonctionnalité: Sécurité
     Alors chaque route répond 401 sans renvoyer de données
 
   Scénario: Protection CSRF (origine différente)
-    Étant donné que le paramètre de test "e2e_csrf" sera supprimé après le scénario
-    Quand "Administrateur" enregistre le paramètre "e2e_csrf" à "malveillant" depuis l'origine "https://malveillant.example"
+    Étant donné que le paramètre de test "test_e2e_csrf" sera supprimé après le scénario
+    Quand "Administrateur" enregistre le paramètre "test_e2e_csrf" à "malveillant" depuis l'origine "https://malveillant.example"
     Alors la réponse a le statut 403
     Et le message d'erreur contient "autre site"
-    Quand "Administrateur" enregistre le paramètre "e2e_csrf" à "intersite" avec l'en-tête Sec-Fetch-Site "cross-site"
+    Quand "Administrateur" enregistre le paramètre "test_e2e_csrf" à "intersite" avec l'en-tête Sec-Fetch-Site "cross-site"
     Alors la réponse a le statut 403
-    Quand "Administrateur" enregistre le paramètre "e2e_csrf" à "legitime" depuis l'origine de l'application
+    Quand "Administrateur" enregistre le paramètre "test_e2e_csrf" à "legitime" depuis l'origine de l'application
     Alors la réponse a le statut 200
-    Et le paramètre "e2e_csrf" vaut "legitime"
+    Et le paramètre "test_e2e_csrf" vaut "legitime"
 
   Scénario: Protection CSRF de la connexion
     Quand une connexion est demandée à l'API depuis l'origine "https://malveillant.example"

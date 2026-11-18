@@ -555,8 +555,8 @@ export async function affRenderPages(html: any, wPx: any, hPx: any, mode: any, w
     const browser = await puppeteer.launch({
         executablePath: affBrowserPath(),
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-        // Valeur obsolète (Puppeteer ≥ 22 : true ou 'shell'), traitée comme true : nouveau mode sans interface (anomalie T2)
-        headless: 'new' as unknown as boolean,
+        // Mode sans interface (l'ancienne valeur 'new', obsolète depuis Puppeteer 22, était traitée comme true)
+        headless: true,
         protocolTimeout: 180000
     });
     try {
