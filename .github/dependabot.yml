@@ -26,6 +26,15 @@ updates:
     groups:
       npm:
         update-types: [minor, patch]
+    # Versions majeures traitées par des lots décidés, pas à la réception d'une PR (mineures et correctifs toujours
+    # proposés ; alertes de sécurité non concernées) :
+    #   - typescript : suivre le support de typescript-eslint et vue-tsc (typescript-eslint 8.73 : < 6.1) ;
+    #   - @types/node : suit la version de Node de l'image, de la CI et d'engines (lot « version de Node »).
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: deps
 
@@ -34,5 +43,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Changement de version majeure de Node : lot dédié (Dockerfile, CI, engines, @types/node), jamais l'image seule
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: docker
