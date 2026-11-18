@@ -4,8 +4,20 @@ services:
     container_name: planif-ressources
     restart: unless-stopped
     env_file: .env
+    # Joignable seulement depuis la VM elle-même : le proxy HTTPS (nginx, sur la VM) est le seul point d'entrée,
+    # l'application n'est pas exposée en HTTP sur le réseau
     ports:
-      - '8080:3000'
+      - '127.0.0.1:8080:3000'
+    # Durcissement (docs/deploiement.md) : aucune élévation de privilèges, aucune capacité Linux (l'application écoute
+    # sur un port non privilégié, Chromium tourne sans sandbox), processus init qui arrête proprement Chromium et
+    # LibreOffice, plafonds de mémoire et de processus (un rendu PDF emballé ne peut pas saturer la VM)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    init: true
+    mem_limit: 2g
+    pids_limit: 1024
     volumes:
       - type: bind
         source: ${APP_DATA_PATH}/config

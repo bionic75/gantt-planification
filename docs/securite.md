@@ -191,6 +191,18 @@ sudo chown -R 1000:1000 "$APP_DATA_PATH/config" "$APP_DATA_PATH/data"
 
 Sans cela, l'application ne peut plus écrire sa base SQLite, les PDF des CRA ni les sauvegardes.
 
+`docker-compose.yml` : port publié sur l'interface locale de la VM seulement (`127.0.0.1:8080`, derrière le proxy
+HTTPS), `no-new-privileges`, aucune capacité Linux, plafonds de mémoire et de processus
+([déploiement](deploiement.md#sur-la-vm)). Image de base épinglée par digest.
+
+## CI et déploiement
+
+- Actions GitHub épinglées par empreinte de commit (SHA) ; Dependabot (actions, npm, image Docker) chaque semaine.
+- Déploiement : clé d'hôte SSH de la VM vérifiée (secret `SAMU_TOOLS_HOST_FINGERPRINT`, obligatoire) ; version saisie
+  à la main contrôlée (`X.Y.Z`) avant d'être utilisée dans le script exécuté sur la VM ; jeton du registre retiré de la
+  VM après le téléchargement de l'image (`docker logout`) ; workflow manuel sans droits sur le dépôt
+  (`permissions: {}`).
+
 ## Requêtes et journaux
 
 - Taille des requêtes : 100 Ko sans session ouverte, 50 Mo pour un utilisateur connecté (planning complet, modèles,
