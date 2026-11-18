@@ -237,6 +237,21 @@ HTTPS), `no-new-privileges`, aucune capacité Linux, plafonds de mémoire et de 
   VM après le téléchargement de l'image (`docker logout`) ; workflow manuel sans droits sur le dépôt
   (`permissions: {}`).
 
+## Dépendances npm
+
+`npm audit --omit=dev` (dépendances de l'image de production) : aucune vulnérabilité. Alertes connues et acceptées
+(novembre 2026), toutes dans les outils de développement et de la campagne e2e, jamais dans l'image :
+
+- `picomatch` ≤ 4.0.7 (élevée, ReDoS sur un motif de fichiers piégé) : aucune version corrigée publiée. Alertes
+  induites sur `tinyglobby`, `fdir`, `vite`, `vitest`, `vue-tsc`, `typescript-eslint` et `playwright-bdd`.
+- `minimatch` 10 et `glob` 13 (modérées) tirés par `@vue/test-utils` (via `js-beautify`) et par `allure` (rapports
+  e2e) : correction seulement dans des versions majeures que ces paquets n'acceptent pas encore ; pas de forçage par
+  `overrides` (paquets non testés avec ces versions).
+
+Les motifs de fichiers de ces outils viennent de la configuration du dépôt, jamais d'une saisie extérieure : risque
+très faible. Dependabot propose les versions corrigées dès leur publication ; vérifier `npm audit` (racine et `e2e/`)
+à chaque mise à jour des outils.
+
 ## Requêtes et journaux
 
 - Taille des requêtes : 100 Ko sans session ouverte, 50 Mo pour un utilisateur connecté (planning complet, modèles,
