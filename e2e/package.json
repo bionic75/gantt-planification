@@ -27,7 +27,7 @@
     "allure": "3.20.1",
     "allure-playwright": "3.13.0",
     "cross-env": "^7.0.3",
-    "dotenv": "^17.2.3",
+    "dotenv": "^18.0.10",
     "imapflow": "^2.9.1",
     "mailparser": "^3.12.4",
     "monocart-reporter": "2.14.1",
