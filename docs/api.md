@@ -26,7 +26,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-338 routes, par module (`backend/src/modules/<module>`) :
+339 routes, par module (`backend/src/modules/<module>`) :
 
 ## admin
 
@@ -134,8 +134,8 @@ Protections :
 | Méthode | Chemin | Protection |
 | --- | --- | --- |
 | GET | `/api/all-astreintes-planning` | auth |
-| GET | `/api/astreinte/dispos/:expertId/:mois` | auth |
-| POST | `/api/astreinte/dispos/:expertId/:mois` | auth |
+| GET | `/api/astreinte/dispos/:expertId/:mois` | admin |
+| POST | `/api/astreinte/dispos/:expertId/:mois` | admin |
 | POST | `/api/astreinte/generate` | admin |
 | POST | `/api/astreinte/indispo` | admin |
 | DELETE | `/api/astreinte/indispo/:id` | admin |
@@ -180,6 +180,7 @@ Protections :
 | POST | `/api/mfa/totp-confirm` | mfaPending |
 | POST | `/api/mfa/totp-setup` | mfaPending |
 | GET | `/api/mfa/totp-status/:userId` | mfaPending |
+| POST | `/api/mfa/totp-unlock` | mfaPending |
 | POST | `/api/mfa/verify` | mfaPending |
 | POST | `/api/mobile-login` | public |
 | POST | `/api/reset-password` | public |

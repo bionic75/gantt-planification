@@ -142,7 +142,8 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const mfaConfig = (enabled: any) => ({
             config: {
                 enabled,
-                method: 'both',
+                // Méthode « application » seule : mise en place directe (méthode « au choix » : code email exigé avant)
+                method: 'totp',
                 frequency: 'always',
                 profileAdmin: false,
                 profileExpert: false,
@@ -153,12 +154,10 @@ describe.skipIf(!BROWSER_PATH)('interface (navigateur)', { timeout: 120000 }, ()
         const user = await createUser(admin, { is_user: 1 });
         const { page, problems, close } = await openPage();
         try {
-            await uiLogin(page, user);
-            await page.waitForSelector('#loginPage [data-etape="choix-mfa"]', { timeout: 20000 });
             // Mise en place de l'application d'authentification : le profil choisi par le serveur est transmis
             const confirmation = page.waitForRequest((r: any) => r.url().endsWith('/api/mfa/totp-confirm'));
-            await page.click('#mfaMethodTotpButton');
-            await page.waitForSelector('#mfaTotpConfirmCode', { visible: true });
+            await uiLogin(page, user);
+            await page.waitForSelector('#mfaTotpConfirmCode', { visible: true, timeout: 20000 });
             await page.type('#mfaTotpConfirmCode', '000000');
             await page.keyboard.press('Enter');
             expect(JSON.parse((await confirmation).postData() ?? '{}').profile).toBe('user');

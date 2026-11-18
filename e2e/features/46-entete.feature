@@ -4,17 +4,18 @@ Fonctionnalité: En-tête de la Planification : utilisateur et profil, changemen
   à la double authentification). La déconnexion est faite sur une session ouverte pour le scénario. Menu Applications,
   enveloppe des invitations et pastille des nouvelles affectations : 02-profils-et-acces et 30-planification-saisie.
 
-  Scénario: Compte à deux profils : profil affiché, puis changement de profil
+  # Le profil Utilisateur est soumis à la double authentification dans le jeu de test, pas le profil RH : depuis une
+  # connexion RH (sans double authentification), le passage au profil Utilisateur est refusé (audit de sécurité, E3)
+  Scénario: Compte à deux profils : profil affiché ; passage à un profil soumis à la double authentification refusé
     Étant donné qu'un compte de test a les profils RH et Utilisateur
     Quand je me connecte avec ce compte de test et le profil "RH"
     Alors l'en-tête présente le compte de test avec le profil "RH"
     Et l'enveloppe des invitations n'est pas proposée
     Quand j'ouvre la liste des profils de l'en-tête
     Alors la liste des profils propose "RH", profil actif, et "Utilisateur"
-    Quand je choisis le profil "Utilisateur" dans l'en-tête
-    Alors la session du compte de test a le profil "Utilisateur"
-    Et l'en-tête présente le compte de test avec le profil "Utilisateur"
-    Et l'enveloppe des invitations est proposée
+    Quand je tente de choisir le profil "Utilisateur" dans l'en-tête
+    Alors la liste des profils signale "demande la double authentification"
+    Et la session du compte de test a le profil "RH"
 
   Scénario: Compte au seul profil RH : libellé du profil
     Étant donné qu'un compte de test n'a que le profil RH

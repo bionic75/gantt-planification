@@ -1,4 +1,4 @@
-// Client HTTP minimal avec conservation du cookie de session
+// Client HTTP minimal avec conservation des cookies (session, appareil de confiance de la double authentification)
 import crypto from 'crypto';
 
 /** Réponse de l'API : corps JSON décodé (forme propre à chaque route), sinon texte brut */
@@ -11,25 +11,34 @@ export interface Reponse {
 export type Entetes = Record<string, string>;
 
 export function createClient(baseUrl: string) {
-    let cookie = '';
+    /** Cookies reçus, par nom */
+    const cookies = new Map<string, string>();
     const client = {
         baseUrl,
+        /** En-tête Cookie à renvoyer (vide sans cookie) */
         get cookie() {
-            return cookie;
+            return [...cookies].map(([name, value]) => `${name}=${value}`).join('; ');
         },
+        /** Valeur d'un cookie reçu */
+        cookieValue: (name: string) => cookies.get(name),
+        /** Oublie un cookie (autre appareil, cookie supprimé par le navigateur) */
+        forgetCookie: (name: string) => cookies.delete(name),
         async request(method: string, url: string, body?: unknown, headers: Entetes = {}): Promise<Reponse> {
             const res = await fetch(baseUrl + url, {
                 method,
                 redirect: 'manual',
                 headers: {
                     ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-                    ...(cookie ? { Cookie: cookie } : {}),
+                    ...(cookies.size ? { Cookie: client.cookie } : {}),
                     ...headers
                 },
                 body: body !== undefined ? JSON.stringify(body) : undefined
             });
-            const setCookie = res.headers.get('set-cookie');
-            if (setCookie) cookie = setCookie.split(';')[0];
+            for (const setCookie of res.headers.getSetCookie()) {
+                const [pair] = setCookie.split(';');
+                const at = pair.indexOf('=');
+                cookies.set(pair.slice(0, at).trim(), pair.slice(at + 1));
+            }
             const text = await res.text();
             let data: unknown = text;
             try {

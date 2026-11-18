@@ -17,6 +17,11 @@ declare module 'express-session' {
         mustChangePassword: boolean;
         /** Session fermée par une déconnexion forcée ou un changement de mot de passe (db/session-store.ts) */
         terminated: boolean;
+        /**
+         * Double authentification validée pour cette session (code ou appareil de confiance) : condition du passage à un
+         * profil qui y est soumis (/api/switch-profile)
+         */
+        mfaValidated: boolean;
         mfaPending: {
             userId: number;
             profile: 'admin' | 'expert' | 'user' | 'rh';
@@ -24,6 +29,8 @@ declare module 'express-session' {
             attempts: number;
             codeSends: number;
             totpSecret: string | null;
+            /** Code email validé pendant cette connexion : autorise l'enregistrement d'une application (méthode « au choix ») */
+            emailVerified?: boolean;
         };
     }
 }

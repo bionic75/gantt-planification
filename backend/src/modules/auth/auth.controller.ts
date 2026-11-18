@@ -15,15 +15,56 @@ import type { Profile } from './auth.service.ts';
 
 const tooManyAttempts = () => new HttpError(429, 'Trop de tentatives. Veuillez vous reconnecter.');
 
+// ---------- Appareil de confiance (dispense de double authentification) ----------
+
+/** Cookie de l'appareil de confiance : jeton aléatoire, seule son empreinte est conservée en base */
+const MFA_COOKIE = 'gantt.mfa';
+
+/** Jeton « appareil de confiance » envoyé par le navigateur, ou null */
+function deviceTokenOf(req: Request): string | null {
+    for (const part of (req.headers.cookie || '').split(';')) {
+        const [name, ...value] = part.trim().split('=');
+        if (name === MFA_COOKIE) return decodeURIComponent(value.join('='));
+    }
+    return null;
+}
+
+/** Double authentification réussie : appareil de confiance pour la durée de la dispense configurée */
+async function trustDevice(req: Request, res: Response, userId: number, frequency: string) {
+    const token = await mfa.recordMfaValidation(userId);
+    const maxAge = mfa.mfaValidityMs(frequency);
+    if (maxAge > 0)
+        res.cookie(MFA_COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge, path: '/' });
+}
+
+/** Nouvel identifiant de session, données conservées (élévation de droits : changement de profil) */
+async function regenerateSession(req: Request) {
+    // Données de la session seulement : le cookie est recréé par regenerate()
+    const data: Record<string, unknown> = { ...req.session };
+    delete data.cookie;
+    await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve(undefined))));
+    Object.assign(req.session, data);
+}
+
+const PROFILE_LABELS: Record<string, string> = {
+    admin: 'Administrateur',
+    expert: 'Expert métier',
+    user: 'Utilisateur',
+    rh: 'RH'
+};
+
 // ---------- Ouverture de session ----------
 
 /**
  * Ouvre la session (nouvel identifiant de session : prévient la fixation et efface une connexion MFA en attente)
  * et renvoie le profil de l'utilisateur au client.
+ * @param mfaValidated double authentification faite (code ou appareil de confiance) : condition du passage à un profil
+ *   qui y est soumis
  */
-async function completeLogin(req: Request, res: Response, user: any, profile: Profile) {
+async function completeLogin(req: Request, res: Response, user: any, profile: Profile, mfaValidated = false) {
     await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve(undefined))));
     Object.assign(req.session, {
+        mfaValidated,
         userId: user.id,
         username: user.username,
         nom: user.nom,
@@ -91,7 +132,11 @@ async function loginOrRequireMfa(
     extra: Record<string, unknown> = {}
 ) {
     const config = await mfa.getMfaConfig();
-    if (mfa.profileRequiresMfa(config, profile) && !(await mfa.isMfaStillValid(user.id, config.frequency))) {
+    if (mfa.profileRequiresMfa(config, profile)) {
+        // Dispense : double authentification récente faite depuis cet appareil (cookie « appareil de confiance »)
+        if (await mfa.isMfaStillValid(user.id, config.frequency, deviceTokenOf(req))) {
+            return completeLogin(req, res, user, profile, true);
+        }
         startMfaPending(req, user.id, profile);
         return res.json({
             mfaRequired: true,
@@ -201,6 +246,18 @@ export async function switchProfile(req: Request, res: Response) {
     if (!profiles) throw new HttpError(500, 'Utilisateur introuvable');
     if (!profiles.includes(profile)) throw forbidden('Profil non autorisé');
 
+    // Profil soumis à la double authentification : elle doit avoir été faite pour cette session, ou depuis cet appareil
+    const config = await mfa.getMfaConfig();
+    if (mfa.profileRequiresMfa(config, profile) && !req.session.mfaValidated) {
+        if (!(await mfa.isMfaStillValid(userId, config.frequency, deviceTokenOf(req)))) {
+            throw forbidden(
+                `Le profil « ${PROFILE_LABELS[profile] || profile} » demande la double authentification : déconnectez-vous puis reconnectez-vous en choisissant ce profil.`
+            );
+        }
+        req.session.mfaValidated = true;
+    }
+    // Changement de droits : nouvel identifiant de session
+    await regenerateSession(req);
     req.session.activeProfile = profile;
     const tracked = activeSessions.get(userId);
     if (tracked) tracked.profile = profile;
@@ -330,24 +387,67 @@ export async function verifyMfa(req: Request, res: Response) {
     const code = String(req.body.code || '');
     if (!consumeMfaAttempt(req)) throw tooManyAttempts();
 
-    let valid = await mfa.consumeEmailCode(userId, code);
-    if (!valid) {
+    // Seules les méthodes de la configuration sont acceptées
+    const config = await mfa.getMfaConfig();
+    const methods = mfa.allowedMethods(config);
+    let valid = methods.email && (await mfa.consumeEmailCode(userId, code));
+    if (!valid && methods.totp) {
         const secret = await mfa.getTotpSecret(userId);
         valid = !!secret && mfa.verifyTotp(secret, code);
     }
     if (!valid) throw unauthorized('Code invalide ou expiré');
 
-    await mfa.recordMfaValidation(userId);
-    await completeLogin(req, res, await auth.getUserForLogin(userId), profile);
+    await trustDevice(req, res, userId, config.frequency);
+    await completeLogin(req, res, await auth.getUserForLogin(userId), profile, true);
 }
 
 export async function totpStatus(req: Request, res: Response) {
     res.json({ configured: await mfa.isTotpConfigured(pendingOf(req).userId) });
 }
 
+/**
+ * Enregistrement d'une application d'authentification autorisé ? Méthode « email » : jamais ; « au choix » : après un
+ * code email validé pendant cette connexion (preuve de l'accès à la boîte du compte) ; « application » seule : premier
+ * enregistrement sur le seul mot de passe (aucun autre facteur disponible).
+ */
+async function assertTotpEnrolmentAllowed(pending: NonNullable<Request['mfaPending']>) {
+    const methods = mfa.allowedMethods(await mfa.getMfaConfig());
+    if (!methods.totp) {
+        throw forbidden(
+            "La double authentification se fait par code email : l'application d'authentification n'est pas utilisée."
+        );
+    }
+    if (methods.email && !pending.emailVerified) {
+        throw forbidden(
+            "Saisissez d'abord le code reçu par email pour enregistrer une application d'authentification."
+        );
+    }
+}
+
+/**
+ * Méthode « au choix », application non encore enregistrée : le code reçu par email autorise son enregistrement
+ * (la connexion reste en attente jusqu'à la confirmation de l'application)
+ */
+export async function unlockTotp(req: Request, res: Response) {
+    const pending = pendingOf(req);
+    const methods = mfa.allowedMethods(await mfa.getMfaConfig());
+    if (!methods.email || !methods.totp)
+        throw forbidden('Étape non prévue par la configuration de la double authentification');
+    if (await mfa.isTotpConfigured(pending.userId)) {
+        throw forbidden('TOTP déjà configuré. Contactez un administrateur pour le réinitialiser.');
+    }
+    if (!consumeMfaAttempt(req)) throw tooManyAttempts();
+    if (!(await mfa.consumeEmailCode(pending.userId, String(req.body.code || '')))) {
+        throw unauthorized('Code invalide ou expiré');
+    }
+    pending.emailVerified = true;
+    res.json({ success: true });
+}
+
 /** Génère un secret TOTP (gardé en session jusqu'à confirmation) et son QR code */
 export async function setupTotp(req: Request, res: Response) {
     const pending = pendingOf(req);
+    await assertTotpEnrolmentAllowed(pending);
     // Un TOTP déjà configuré ne peut être remplacé qu'après réinitialisation par un administrateur
     if (await mfa.isTotpConfigured(pending.userId)) {
         throw forbidden('TOTP déjà configuré. Contactez un administrateur pour le réinitialiser.');
@@ -362,15 +462,17 @@ export async function setupTotp(req: Request, res: Response) {
 
 /** Confirme la configuration TOTP par un premier code et ouvre la session */
 export async function confirmTotp(req: Request, res: Response) {
-    const { userId, profile, totpSecret: secret } = pendingOf(req);
+    const pending = pendingOf(req);
+    const { userId, profile, totpSecret: secret } = pending;
     const code = String(req.body.code || '');
 
+    await assertTotpEnrolmentAllowed(pending);
     if (!secret) throw badRequest('Aucune configuration TOTP en cours.');
     if (!consumeMfaAttempt(req)) throw tooManyAttempts();
     if (!mfa.verifyTotp(secret, code)) throw unauthorized('Code invalide');
 
     await mfa.saveTotpSecret(userId, secret);
-    await mfa.recordMfaValidation(userId);
+    await trustDevice(req, res, userId, (await mfa.getMfaConfig()).frequency);
     console.log(`🔐 TOTP configuré pour l'utilisateur ${userId}`);
-    await completeLogin(req, res, await auth.getUserForLogin(userId), profile);
+    await completeLogin(req, res, await auth.getUserForLogin(userId), profile, true);
 }

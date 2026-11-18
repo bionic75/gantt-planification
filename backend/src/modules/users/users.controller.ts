@@ -1,4 +1,5 @@
 import { env } from '../../config/env.ts';
+import { idParam } from '../../db/values.ts';
 import { badRequest, forbidden } from '../../lib/http-error.ts';
 import { sendEmail } from '../../lib/mailer.ts';
 import { logUserAction } from '../../services/action-log.ts';
@@ -85,7 +86,10 @@ export async function create(req: Request, res: Response) {
 
 export async function update(req: Request, res: Response) {
     const { id } = req.params;
+    const before = await service.sessionRights(id);
     const resourceId = await service.updateUser(id, req.body);
+    // Profils ou ressource modifiés : les sessions ouvertes gardaient les anciens droits, elles sont fermées
+    if (before !== null && before !== (await service.sessionRights(id))) await revokeUserSessions(idParam(id));
     const { nom, prenom, is_admin, is_expert, is_user, has_reporting_access, amoa_ced } = req.body;
     logUserAction(req, 'Modification utilisateur', {
         userId: id,
@@ -102,12 +106,16 @@ export async function update(req: Request, res: Response) {
 export async function remove(req: Request, res: Response) {
     const { id } = req.params;
     await service.deleteUser(id);
+    // Compte supprimé : ses sessions ouvertes sont fermées
+    await revokeUserSessions(idParam(id));
     logUserAction(req, 'Suppression utilisateur', { userId: id });
     res.json({ success: true });
 }
 
 export async function toggle(req: Request, res: Response) {
     const actif = await service.toggleUser(req.params.id);
+    // Compte désactivé : ses sessions ouvertes sont fermées
+    if (actif === 0) await revokeUserSessions(idParam(req.params.id));
     res.json({ success: true, actif });
 }
 
@@ -131,6 +139,8 @@ export async function setReportingAccess(req: Request, res: Response) {
 
 export async function setRhAccess(req: Request, res: Response) {
     await service.setUserFlag(req.params.id, 'is_rh', !!req.body.hasAccess);
+    // Profil RH retiré : une session ouverte avec ce profil le garderait, elle est fermée
+    if (!req.body.hasAccess) await revokeUserSessions(idParam(req.params.id));
     res.json({ success: true });
 }
 
@@ -170,6 +180,8 @@ export async function revokeAppAccess(req: Request, res: Response) {
 export async function resetPassword(req: Request, res: Response) {
     const { newPassword, sendEmail: shouldSendEmail } = req.body;
     const user = await service.resetPassword(req.params.id, newPassword);
+    // Mot de passe réinitialisé (compte compromis, oubli) : les sessions ouvertes sont fermées
+    await revokeUserSessions(idParam(req.params.id));
 
     const emailSent = shouldSendEmail
         ? await trySendEmail(

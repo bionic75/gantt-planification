@@ -1,6 +1,7 @@
 <!-- Double authentification, dans la carte de connexion (bureau et mobile) : choix de la méthode, code reçu par e-mail
      (envoyé dès le choix, renvoi possible), code de l'application d'authentification, mise en place de l'application
-     (QR code et clé). Repère des tests : data-etape (choix-mfa, code-mfa, totp-setup) et data-methode du code. -->
+     (QR code et clé). Méthode « au choix » : la mise en place d'une application demande d'abord le code reçu par e-mail.
+     Repère des tests : data-etape (choix-mfa, code-mfa, totp-setup) et data-methode du code. -->
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { ErreurApi } from '@/api/client';
@@ -26,6 +27,8 @@ type Etape = 'attente' | 'choix-mfa' | 'code-mfa' | 'totp-setup';
 const etape = ref<Etape>('attente');
 /** Code attendu : reçu par e-mail ou affiché par l'application d'authentification */
 const parEmail = ref(false);
+/** Code e-mail demandé pour autoriser la mise en place d'une application (méthode « au choix ») */
+const pourApplication = ref(false);
 const code = ref('');
 const erreur = ref('');
 const verification = ref(false);
@@ -49,8 +52,9 @@ async function focaliser() {
     champ.value?.focus();
 }
 
-function afficherCode(email: boolean) {
+function afficherCode(email: boolean, application = false) {
     parEmail.value = email;
+    pourApplication.value = application;
     code.value = '';
     erreur.value = '';
     renvoi.value = 'pret';
@@ -58,11 +62,14 @@ function afficherCode(email: boolean) {
     void focaliser();
 }
 
-/** Code par e-mail : envoyé dès le choix de la méthode */
-async function envoyerParEmail() {
+/**
+ * Code par e-mail : envoyé dès le choix de la méthode
+ * @param application code demandé pour autoriser la mise en place d'une application d'authentification
+ */
+async function envoyerParEmail(application = false) {
     try {
         await connexionApi.envoyerCode(props.demande.userId);
-        afficherCode(true);
+        afficherCode(true, application);
     } catch (e) {
         if (!(e instanceof ErreurApi)) {
             emit(
@@ -80,6 +87,7 @@ async function envoyerParEmail() {
 async function preparerTotp() {
     try {
         totp.value = await connexionApi.preparerTotp(props.demande.userId);
+        pourApplication.value = false;
         code.value = '';
         erreur.value = '';
         etape.value = 'totp-setup';
@@ -94,7 +102,8 @@ async function choisir(methode: 'email' | 'totp') {
     try {
         const { configured } = await connexionApi.etatTotp(props.demande.userId);
         if (configured) afficherCode(false);
-        else await preparerTotp();
+        // Première mise en place : le code reçu par e-mail prouve l'accès au compte
+        else await envoyerParEmail(true);
     } catch {
         emit('echec', 'Erreur de vérification TOTP');
     }
@@ -111,6 +120,11 @@ async function verifier() {
     erreur.value = '';
     try {
         const { userId, profil } = props.demande;
+        if (pourApplication.value) {
+            await connexionApi.deverrouillerTotp(saisi);
+            await preparerTotp();
+            return;
+        }
         const r =
             etape.value === 'totp-setup'
                 ? await connexionApi.confirmerTotp(userId, totp.value!.secret, saisi, profil)
@@ -192,9 +206,11 @@ onBeforeUnmount(() => clearTimeout(minuteur));
                 <div class="lp-mfa__titre">Vérification en deux étapes</div>
                 <p v-if="etape === 'code-mfa'" id="mfaCodeMessage" class="lp-mfa__texte">
                     {{
-                        parEmail
-                            ? 'Un code de vérification a été envoyé à votre adresse email.'
-                            : "Entrez le code affiché dans votre application d'authentification."
+                        pourApplication
+                            ? "Pour configurer une application d'authentification, saisissez d'abord le code envoyé à votre adresse email."
+                            : parEmail
+                              ? 'Un code de vérification a été envoyé à votre adresse email.'
+                              : "Entrez le code affiché dans votre application d'authentification."
                     }}
                 </p>
             </template>
