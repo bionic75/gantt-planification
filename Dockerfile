@@ -2,7 +2,7 @@
 # dans l'image finale, sans les outils de build (dépendances de développement)
 # Image de base épinglée par digest (constructions reproductibles, pas de substitution de l'étiquette) ; Dependabot
 # propose chaque nouvelle image node:22-alpine (.github/dependabot.yml). Même digest pour les deux étapes.
-FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS frontend
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS frontend
 WORKDIR /build
 # Paquets npm (workspaces) : manifestes de la racine et des deux paquets, puis dépendances du seul paquet frontend
 COPY package.json package-lock.json ./
@@ -12,7 +12,7 @@ RUN npm ci --ignore-scripts --workspace frontend
 COPY frontend ./frontend
 RUN npm run build:front
 
-FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 
 # Chromium + libs requises par Puppeteer ; LibreOffice (conversion PowerPoint → PDF de l'export du planning avec modèle)
 # et polices pour la mise en page des documents convertis
