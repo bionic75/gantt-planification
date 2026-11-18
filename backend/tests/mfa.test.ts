@@ -1,5 +1,6 @@
 // Double authentification (MFA) : la connexion en attente est conservée côté serveur,
-// les userId / profile / secret envoyés par le client sont ignorés.
+// les userId / profile / secret envoyés par le client sont ignorés. Méthode « application » seule : premier
+// enregistrement de l'application sur le seul mot de passe (méthodes « email » et « au choix » : mfa-securite.test.ts).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ADMIN, startServer } from './helpers/server.ts';
 import { totp } from './helpers/client.ts';
@@ -18,7 +19,7 @@ beforeAll(async () => {
     const r = await admin.post('/api/mfa/config', {
         config: {
             enabled: true,
-            method: 'both',
+            method: 'totp',
             frequency: 'always',
             profileAdmin: false,
             profileExpert: true,
@@ -69,7 +70,7 @@ describe('connexion avec MFA', () => {
     it("ne crée pas de session tant que le code n'est pas validé", async () => {
         const user = await createUser(admin, { is_user: 1 });
         const { client, login } = await pendingLogin(user);
-        expect(login).toMatchObject({ mfaMethod: 'choice', totpConfigured: false });
+        expect(login).toMatchObject({ mfaMethod: 'totp', totpConfigured: false });
         expect((await client.get('/api/check-session')).status).toBe(401);
         expect((await client.get('/api/resources')).status).toBe(401);
     });

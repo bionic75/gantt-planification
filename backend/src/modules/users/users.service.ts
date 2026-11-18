@@ -176,6 +176,18 @@ export async function createUser(data: Record<string, any>): Promise<number> {
 }
 
 /**
+ * Droits d'un compte conservés dans ses sessions ouvertes (profils, ressource rattachée) : s'ils changent, les sessions
+ * doivent être fermées. Chaîne comparable, null si le compte n'existe pas.
+ */
+export async function sessionRights(id: string | number) {
+    const user = await prisma.user.findUnique({
+        where: { id: idParam(id) },
+        select: { is_admin: true, is_expert: true, is_user: true, is_rh: true, resource_id: true }
+    });
+    return user ? JSON.stringify(user) : null;
+}
+
+/**
  * @returns identifiant de ressource retenu
  */
 export async function updateUser(id: string | number, data: Record<string, any>): Promise<number | null> {

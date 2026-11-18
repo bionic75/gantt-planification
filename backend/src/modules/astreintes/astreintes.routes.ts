@@ -24,8 +24,9 @@ router.delete('/astreintes-hno/:id', requireAuth, h(ctrl.removeEntry));
 router.get('/astreinte/volontaires', requireAdmin, h(ctrl.volontaires));
 router.post('/astreinte/volontaire/:id', requireAdmin, h(ctrl.setVolontaire));
 router.get('/astreinte/indispos', requireAdmin, h(ctrl.indisponibilites));
-router.get('/astreinte/dispos/:expertId/:mois', requireAuth, h(ctrl.disponibilites));
-router.post('/astreinte/dispos/:expertId/:mois', requireAuth, h(ctrl.saveDisponibilites));
+// Disponibilités HNO des volontaires : écran réservé aux administrateurs (génération du planning d'astreinte)
+router.get('/astreinte/dispos/:expertId/:mois', requireAdmin, h(ctrl.disponibilites));
+router.post('/astreinte/dispos/:expertId/:mois', requireAdmin, h(ctrl.saveDisponibilites));
 router.post('/astreinte/indispo', requireAdmin, h(ctrl.addIndisponibilite));
 router.delete('/astreinte/indispo/:id', requireAdmin, h(ctrl.removeIndisponibilite));
 router.post('/astreinte/generate', requireAdmin, h(ctrl.generate));

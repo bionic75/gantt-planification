@@ -71,6 +71,15 @@ Then('la liste des profils propose {string}, profil actif, et {string}', async (
     await expect(liste.locator(':scope > *', { hasText: autre })).not.toContainText('✓');
 });
 
+When("je tente de choisir le profil {string} dans l'en-tête", async ({ monde }, libelle) => {
+    // Changement refusé : la page n'est pas rechargée, la liste reste ouverte avec le message du serveur
+    await monde.page.locator('#profileDropdown > *', { hasText: libelle }).click();
+});
+
+Then('la liste des profils signale {string}', async ({ monde }, message) => {
+    await expect(monde.page.locator('#profileDropdown [role="alert"]')).toContainText(message);
+});
+
 When("je choisis le profil {string} dans l'en-tête", async ({ monde }, libelle) => {
     const page = monde.page;
     // Changement de profil : page rechargée

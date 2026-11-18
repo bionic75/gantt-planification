@@ -30,6 +30,8 @@ router.post('/mfa/send-code', requireMfaPending, h(ctrl.sendMfaCode));
 router.post('/mfa/verify', tokenCheckLimiter, requireMfaPending, h(ctrl.verifyMfa));
 // :userId conservé pour compatibilité, ignoré
 router.get('/mfa/totp-status/:userId', requireMfaPending, h(ctrl.totpStatus));
+// Méthode « au choix » : code email exigé avant l'enregistrement d'une application d'authentification
+router.post('/mfa/totp-unlock', tokenCheckLimiter, requireMfaPending, h(ctrl.unlockTotp));
 router.post('/mfa/totp-setup', requireMfaPending, h(ctrl.setupTotp));
 router.post('/mfa/totp-confirm', tokenCheckLimiter, requireMfaPending, h(ctrl.confirmTotp));
 

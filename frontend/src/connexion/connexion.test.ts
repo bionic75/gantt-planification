@@ -201,6 +201,34 @@ describe('EtapeDoubleAuthentification', () => {
         w.unmount();
     });
 
+    it('au choix, application non configurée : code e-mail exigé avant la mise en place de l’application', async () => {
+        const appels = simulerApi({
+            'GET /mfa/totp-status/3': [200, { configured: false }],
+            'POST /mfa/send-code': [200, { success: true }],
+            'POST /mfa/totp-unlock': [200, { success: true }],
+            'POST /mfa/totp-setup': [200, { secret: 'ABCDEF', qrCode: 'data:image/png;base64,AA' }]
+        });
+        const w = monter({ totpConfigure: false });
+        await nextTick();
+        await w.find('#mfaMethodTotpButton').trigger('click');
+        await flushPromises();
+        // Code e-mail d'abord : aucune mise en place avant sa validation
+        expect(appels.map(a => a.cle)).toEqual(['GET /mfa/totp-status/3', 'POST /mfa/send-code']);
+        expect(w.attributes('data-etape')).toBe('code-mfa');
+        expect(w.attributes('data-methode')).toBe('email');
+        expect(w.find('#mfaCodeMessage').text()).toContain("configurer une application d'authentification");
+        await w.find('#mfaCodeInput').setValue('123456');
+        await w.find('#mfaVerifyButton').trigger('click');
+        await flushPromises();
+        expect(appels.slice(2)).toEqual([
+            { cle: 'POST /mfa/totp-unlock', corps: { code: '123456' } },
+            { cle: 'POST /mfa/totp-setup', corps: { userId: 3 } }
+        ]);
+        expect(w.attributes('data-etape')).toBe('totp-setup');
+        expect(w.find('#mfaTotpSecret').text()).toBe('ABCDEF');
+        w.unmount();
+    });
+
     it('envoi du code impossible : retour aux identifiants avec le message (SMTP signalé)', async () => {
         simulerApi({ 'POST /mfa/send-code': [500, { error: 'Configuration SMTP absente' }] });
         const w = monter({ methode: 'email' });

@@ -2,7 +2,6 @@
 // Une cellule est identifiée par la clé « <resourceId>_<type>_<AAAA-MM-JJ>_<AM|PM> » ;
 // type : available (disponibilité), activity (affectation) ou localisation.
 import { prisma } from '../../db/prisma.ts';
-import { idParam } from '../../db/values.ts';
 
 /** Libellés des activités journalisées dans action_logs */
 export const LOGGED_ACTIVITIES = {
@@ -24,12 +23,23 @@ export function parseKey(key: string) {
 }
 
 /**
+ * Identifiant de ressource écrit en chiffres seulement (« 12 ») ; null sinon (« 1e1 », « 0x0c », « 12.0 », vide…).
+ * Seule lecture admise : le contrôle « l'expert ne modifie que sa ligne » et l'écriture doivent viser la même ressource.
+ */
+export function strictResourceId(value: unknown): number | null {
+    const text = String(value ?? '');
+    if (!/^\d+$/.test(text)) return null;
+    const id = Number(text);
+    return Number.isSafeInteger(id) ? id : null;
+}
+
+/**
  * Cellule à enregistrer, ou null si la clé ou la valeur est inutilisable (refusée par la base auparavant)
  */
 function toCell(key: string, value: unknown) {
     const { resourceId, type, dateKey } = parseKey(key);
-    const resource_id = Number(resourceId);
-    if (!Number.isSafeInteger(resource_id) || type === undefined || value === null || value === undefined) return null;
+    const resource_id = strictResourceId(resourceId);
+    if (resource_id === null || type === undefined || value === null || value === undefined) return null;
     return { resource_id, type, date_key: dateKey, value: String(value) };
 }
 
@@ -68,7 +78,7 @@ export async function upsertCellWithNotification(key: string, value: unknown, no
  */
 export async function changedCells(updates: Array<{ key: string; value: unknown }>) {
     const valid = updates.filter(({ key, value }) => toCell(key, value) !== null);
-    const resourceIds = [...new Set(valid.map(({ key }) => Number(parseKey(key).resourceId)))];
+    const resourceIds = [...new Set(valid.map(({ key }) => strictResourceId(parseKey(key).resourceId) as number))];
     const stored: Map<string, string> = new Map();
     for (const ids of chunks(resourceIds)) {
         const rows = await prisma.scheduleData.findMany({
@@ -242,7 +252,7 @@ const monthPrefix = (year: unknown, month: any) => `${year}-${String(month + 1).
  */
 export async function previewMonth(resourceId: unknown, year: unknown, month: unknown) {
     const rows = await prisma.scheduleData.findMany({
-        where: { resource_id: idParam(resourceId), date_key: { startsWith: monthPrefix(year, month) } },
+        where: { resource_id: strictResourceId(resourceId) ?? -1, date_key: { startsWith: monthPrefix(year, month) } },
         orderBy: [{ date_key: 'asc' }, { id: 'asc' }]
     });
 
@@ -275,7 +285,7 @@ export async function previewMonth(resourceId: unknown, year: unknown, month: un
 export async function resetMonth(resourceId: unknown, year: unknown, month: unknown) {
     const prefix = monthPrefix(year, month);
     const { count } = await prisma.scheduleData.deleteMany({
-        where: { resource_id: idParam(resourceId), date_key: { startsWith: prefix } }
+        where: { resource_id: strictResourceId(resourceId) ?? -1, date_key: { startsWith: prefix } }
     });
     return { deleted: count, pattern: `${prefix}%` };
 }

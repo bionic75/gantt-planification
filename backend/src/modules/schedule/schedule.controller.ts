@@ -5,9 +5,12 @@ import * as service from './schedule.service.ts';
 
 import type { Request, Response } from 'express';
 
-/** L'expert ne peut modifier que la ligne de sa propre ressource */
+/**
+ * L'expert ne peut modifier que la ligne de sa propre ressource. Identifiant lu comme pour l'écriture
+ * (service.strictResourceId) : un identifiant mal formé (« 5e1 ») n'est jamais le sien.
+ */
 const isOtherResource = (req: Request, resourceId: unknown) =>
-    req.session.activeProfile === 'expert' && parseInt(String(resourceId)) !== req.session.resourceId;
+    req.session.activeProfile === 'expert' && service.strictResourceId(resourceId) !== req.session.resourceId;
 
 /** Profil « utilisateur » : consultation du planning seulement */
 export function rejectReadOnlyProfile(req: Request, res: Response, next: import('express').NextFunction) {

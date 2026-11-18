@@ -595,7 +595,11 @@ model MfaValidation {
   id           Int       @id @default(autoincrement())
   user_id      Int
   validated_at String? @db.VarChar(32) @default(dbgenerated("(date_format(utc_timestamp(),'%Y-%m-%d %H:%i:%s'))"))
+  /// Empreinte SHA-256 du jeton « appareil de confiance » (cookie gantt.mfa) : la dispense de double authentification
+  /// ne vaut que pour cet appareil. Anciennes validations (sans empreinte) : plus aucune dispense.
+  device_hash  String? @db.VarChar(191)
 
+  @@index([user_id, device_hash])
   @@map("mfa_validations")
 }
 

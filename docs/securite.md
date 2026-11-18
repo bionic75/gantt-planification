@@ -44,8 +44,14 @@ Code : `securityHeaders()` dans `backend/src/app.ts` (helmet).
 
 - Stockées en base (table `sessions`, `backend/src/db/session-store.ts`) : elles survivent aux redémarrages ; les sessions
   expirées sont supprimées toutes les 15 minutes.
-- Fermeture forcée (administration) et réinitialisation du mot de passe : les sessions du compte sont marquées
-  fermées en base ; leur requête suivante reçoit `401 SESSION_TERMINATED`, même après un redémarrage.
+- Les sessions du compte sont marquées fermées en base, et leur requête suivante reçoit `401 SESSION_TERMINATED`
+  (même après un redémarrage), dans ces cas :
+    - fermeture forcée (administration) ;
+    - réinitialisation du mot de passe, par le lien « mot de passe oublié » ou par un administrateur ;
+    - compte désactivé ou supprimé ;
+    - profils (administrateur, expert, utilisateur, RH) ou ressource rattachée modifiés : une session ouverte garderait
+      les anciens droits. Un simple changement de nom ou d'adresse email ne ferme pas les sessions.
+- Changement de profil (`/api/switch-profile`) : nouvel identifiant de session.
 - Cookie `Secure` dès que la requête arrive en HTTPS, directement ou par un proxy de confiance (`TRUST_PROXY`).
 - Les sauvegardes `.gpdump` et le transfert vers PostgreSQL / MariaDB ne contiennent pas les sessions.
 
@@ -60,11 +66,11 @@ protocole (`X-Forwarded-Proto`, cookie `Secure`). L'application exposée directe
 
 Code : `backend/src/middlewares/rate-limit.ts`. Compteurs en mémoire, par processus ; réponse `429`.
 
-| Route                                                                       | Limite                                                          |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `/api/login`, `/api/mobile-login`                                           | 10 échecs par identifiant et 30 échecs par adresse IP, 15 min   |
-| `/api/forgot-password`                                                      | 20 demandes par adresse IP, 15 min (et 1 par minute par compte) |
-| `/api/reset-password`, `/check`, `/api/mfa/verify`, `/api/mfa/totp-confirm` | 30 échecs par adresse IP, 15 min                                |
+| Route                                                                                               | Limite                                                          |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `/api/login`, `/api/mobile-login`                                                                   | 10 échecs par identifiant et 30 échecs par adresse IP, 15 min   |
+| `/api/forgot-password`                                                                              | 20 demandes par adresse IP, 15 min (et 1 par minute par compte) |
+| `/api/reset-password`, `/check`, `/api/mfa/verify`, `/api/mfa/totp-unlock`, `/api/mfa/totp-confirm` | 30 échecs par adresse IP, 15 min                                |
 
 ## Comptes
 
@@ -78,6 +84,29 @@ Code : `backend/src/middlewares/rate-limit.ts`. Compteurs en mémoire, par proce
   différer de l'ancien. L'application mobile refuse la connexion de ces comptes. Un mot de passe choisi par
   l'utilisateur (écran « Mon profil », lien « mot de passe oublié ») lève l'obligation.
 - Profil « utilisateur » : planning en lecture seule (modifications refusées, `403`).
+- Profil « expert » : seule la ligne de sa ressource est modifiable dans le planning. L'identifiant de ressource d'une
+  cellule n'est accepté qu'écrit en chiffres (« 12 ») : une clé mal formée (« 1e1 ») est ignorée.
+
+## Double authentification
+
+Code : `backend/src/modules/auth/` (`mfa.service.ts`, `mfa-pending.ts`, `auth.controller.ts`). Réglages dans
+l'administration : profils soumis (le profil RH ne l'est jamais), méthode, fréquence.
+
+- La connexion reste en attente (côté serveur, 10 minutes) tant que le code n'est pas validé. Seules les méthodes de
+  la configuration sont acceptées :
+    - **email** : code reçu par email ; aucune application d'authentification ne peut être enregistrée ;
+    - **application** : code de l'application d'authentification (TOTP). Le premier enregistrement de l'application se
+      fait à la première connexion, sur le seul mot de passe : aucun autre facteur n'existe encore (risque assumé) ;
+    - **au choix** : code email ou code de l'application. L'enregistrement d'une application exige d'abord un code
+      reçu par email pendant la même connexion (`/api/mfa/totp-unlock`) : un mot de passe volé ne suffit pas à enregistrer
+      l'application d'un attaquant.
+- Une application déjà enregistrée ne peut être remplacée qu'après sa réinitialisation par un administrateur.
+- Fréquence « chaque jour / semaine / mois » : la dispense vaut pour **l'appareil** où le code a été validé (cookie
+  `gantt.mfa`, `HttpOnly`, jeton aléatoire dont seule l'empreinte est conservée en base, durée égale à la période),
+  pas pour le compte. Une connexion depuis un autre appareil demande un code. La réinitialisation de la double
+  authentification d'un compte (administration) retire ses appareils de confiance.
+- Changement de profil vers un profil soumis à la double authentification : accepté seulement si elle a été faite
+  pour la session ou si l'appareil est de confiance ; sinon refusé (« reconnectez-vous en choisissant ce profil »).
 
 ## Données saisies dans les emails et les PDF
 

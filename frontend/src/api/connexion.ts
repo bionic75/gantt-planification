@@ -63,6 +63,8 @@ export const connexionApi = {
     verifierCode: (userId: number, code: string, profile: string) =>
         api.post<{ success?: boolean; user?: UtilisateurConnecte }>('/mfa/verify', { userId, code, profile }),
     etatTotp: (userId: number) => api.get<{ configured?: boolean }>(`/mfa/totp-status/${userId}`),
+    /** Méthode « au choix » : le code reçu par email autorise l'enregistrement d'une application d'authentification */
+    deverrouillerTotp: (code: string) => api.post<{ success?: boolean }>('/mfa/totp-unlock', { code }),
     preparerTotp: (userId: number) => api.post<{ secret: string; qrCode: string }>('/mfa/totp-setup', { userId }),
     confirmerTotp: (userId: number, secret: string, code: string, profile: string) =>
         api.post<{ success?: boolean; user?: UtilisateurConnecte }>('/mfa/totp-confirm', {

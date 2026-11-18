@@ -266,3 +266,44 @@ describe('remise à zéro mensuelle', () => {
         expect(r.status).toBe(403);
     });
 });
+
+// Audit de sécurité, lot 1 (E1) : un identifiant de ressource mal formé (« 5e1 » vaut 50 en notation scientifique) ne
+// doit pas faire passer le contrôle « sa propre ligne » (lu « 5 ») puis viser une autre ressource à l'écriture
+describe('expert : identifiant de ressource mal formé', () => {
+    it('écriture, suppression et remise à zéro refusées sur la ressource visée par la notation scientifique', async () => {
+        const { user, resource } = await createExpert(admin);
+        const cible = resource.id * 10;
+        const date = '2027-02-01';
+        await admin.post('/api/schedule', { [key(cible, 'activity', date)]: '5' });
+        const expert = await loginAs(server, user, 'expert');
+
+        await expert.post('/api/schedule', { [key(`${resource.id}e1`, 'localisation', date)]: 'PIRATE' });
+        await expert.post('/api/schedule/save', {
+            updates: [
+                { key: key(`${resource.id}e1`, 'activity', date), value: null },
+                { key: key(`${resource.id}e1`, 'available', date), value: '2' }
+            ]
+        });
+        const data = await schedule();
+        expect(data[key(cible, 'activity', date)]).toBe('5');
+        expect(data).not.toHaveProperty(key(cible, 'localisation', date));
+        expect(data).not.toHaveProperty(key(cible, 'available', date));
+
+        const raz = await expert.post('/api/schedule/reset-month', {
+            resourceId: `${resource.id}e1`,
+            year: 2027,
+            month: 1
+        });
+        expect(raz.status).toBe(403);
+        expect((await schedule())[key(cible, 'activity', date)]).toBe('5');
+    });
+
+    it('sa propre ligne reste modifiable (identifiant écrit en chiffres)', async () => {
+        const { user, resource } = await createExpert(admin);
+        const expert = await loginAs(server, user, 'expert');
+        await expert.post('/api/schedule/save', {
+            updates: [{ key: key(resource.id, 'available', '2027-02-02'), value: '2' }]
+        });
+        expect((await schedule())[key(resource.id, 'available', '2027-02-02')]).toBe('2');
+    });
+});

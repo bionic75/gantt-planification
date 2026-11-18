@@ -108,3 +108,58 @@ describe('utilisateurs', () => {
         expect(r.data.error).toBe('SESSION_TERMINATED');
     });
 });
+
+// Audit de sécurité, lot 1 (E5) : un compte désactivé, supprimé, aux profils modifiés ou au mot de passe réinitialisé par
+// un administrateur ne garde pas ses sessions ouvertes
+describe('fermeture des sessions après une modification du compte', () => {
+    const fermee = async (client: Client) => {
+        const r = await client.get('/api/resources');
+        expect(r.status).toBe(401);
+    };
+    const ouverte = async (client: Client) => expect((await client.get('/api/resources')).status).toBe(200);
+
+    it('désactivation, puis réactivation sans effet sur une nouvelle session', async () => {
+        const user = await createUser(admin, { is_user: 1 });
+        const client = await loginAs(server, user, 'user');
+        expect((await admin.post(`/api/users/${user.id}/toggle`)).data.actif).toBe(0);
+        await fermee(client);
+        expect((await admin.post(`/api/users/${user.id}/toggle`)).data.actif).toBe(1);
+        await ouverte(await loginAs(server, user, 'user'));
+    });
+
+    it('suppression', async () => {
+        const user = await createUser(admin, { is_user: 1 });
+        const client = await loginAs(server, user, 'user');
+        expect((await admin.delete(`/api/users/${user.id}`)).status).toBe(200);
+        await fermee(client);
+    });
+
+    it('profils modifiés : sessions fermées ; nom modifié seulement : sessions conservées', async () => {
+        const user = await createUser(admin, { is_user: 1, is_admin: 1 });
+        const base = { nom: user.nom, prenom: user.prenom, email: user.email, is_user: 1, is_admin: 1 };
+        const client = await loginAs(server, user, 'admin');
+        expect((await admin.put(`/api/users/${user.id}`, { ...base, nom: 'RENOMME' })).status).toBe(200);
+        await ouverte(client);
+        // Administrateur rétrogradé : sa session d'administration ne doit plus servir
+        expect((await admin.put(`/api/users/${user.id}`, { ...base, is_admin: 0 })).status).toBe(200);
+        await fermee(client);
+    });
+
+    it('profil RH retiré', async () => {
+        const user = await createUser(admin, { is_rh: 1 });
+        const client = await loginAs(server, user, 'rh');
+        expect((await admin.post(`/api/users/${user.id}/rh-access`, { hasAccess: false })).status).toBe(200);
+        await fermee(client);
+    });
+
+    it('mot de passe réinitialisé par un administrateur', async () => {
+        const user = await createUser(admin, { is_user: 1 });
+        const client = await loginAs(server, user, 'user');
+        const r = await admin.post(`/api/users/${user.id}/reset-password`, {
+            newPassword: 'Nouveau-1!',
+            sendEmail: false
+        });
+        expect(r.status).toBe(200);
+        await fermee(client);
+    });
+});

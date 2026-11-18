@@ -263,4 +263,19 @@ describe("planning d'astreinte", () => {
         expect((await client.post('/api/astreinte/generate', { year: 2030, month: 7 })).status).toBe(403);
         expect((await client.get('/api/astreinte/volontaires')).status).toBe(403);
     });
+
+    // Audit de sécurité, lot 1 (E6) : écran réservé aux administrateurs, routes aussi
+    it('disponibilités HNO : lecture et écriture réservées aux administrateurs', async () => {
+        const res = await createResource(admin);
+        await admin.post(`/api/astreinte/dispos/${res.id}/2031-07`, { disponibilites: ['2031-07-07'] });
+        const user = await createUser(admin, { is_user: 1 });
+        const { client: expert } = await expertClient();
+        for (const client of [await loginAs(server, user, 'user'), expert]) {
+            expect((await client.get(`/api/astreinte/dispos/${res.id}/2031-07`)).status).toBe(403);
+            const r = await client.post(`/api/astreinte/dispos/${res.id}/2031-07`, { disponibilites: [] });
+            expect(r.status).toBe(403);
+        }
+        const dispos = (await admin.get(`/api/astreinte/dispos/${res.id}/2031-07`)).data;
+        expect(dispos.map((d: any) => d.date)).toContain('2031-07-07');
+    });
 });

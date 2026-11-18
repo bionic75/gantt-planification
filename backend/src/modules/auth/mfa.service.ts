@@ -41,22 +41,46 @@ export function profileRequiresMfa(config: any, profile: string) {
 /** Méthode proposée au client : 'email', 'totp' ou 'choice' */
 export const clientMfaMethod = (config: any) => (config.method === 'both' ? 'choice' : config.method);
 
-// ---------- Validations ----------
+/** Méthodes acceptées par la configuration (« email » par défaut, comme l'écran d'administration) */
+export function allowedMethods(config: any) {
+    const method = config?.method || 'email';
+    return { email: method === 'email' || method === 'both', totp: method === 'totp' || method === 'both', method };
+}
 
-/** Une vérification MFA récente dispense-t-elle d'en demander une nouvelle ? */
-export async function isMfaStillValid(userId: number, frequency: string) {
+// ---------- Validations (appareil de confiance) ----------
+
+/** Durée de la dispense de double authentification (0 : à chaque connexion) */
+export const mfaValidityMs = (frequency: string) =>
+    MFA_VALIDITY_MS[frequency as keyof typeof MFA_VALIDITY_MS] ?? DAY_MS;
+
+const deviceHash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
+
+/**
+ * Une vérification MFA récente faite depuis cet appareil (jeton du cookie « appareil de confiance ») dispense-t-elle
+ * d'en demander une nouvelle ? Sans jeton, ou jeton d'un autre compte : non.
+ */
+export async function isMfaStillValid(userId: number, frequency: string, deviceToken: string | null) {
+    if (!deviceToken) return false;
     const row = await prisma.mfaValidation.findFirst({
-        where: { user_id: userId },
+        where: { user_id: userId, device_hash: deviceHash(deviceToken) },
         orderBy: { validated_at: 'desc' },
         select: { validated_at: true }
     });
     if (!row || !row.validated_at) return false;
-    const maxAge = MFA_VALIDITY_MS[frequency as keyof typeof MFA_VALIDITY_MS] ?? DAY_MS;
-    return Date.now() - new Date(row.validated_at).getTime() < maxAge;
+    // validated_at : « AAAA-MM-JJ HH:MM:SS » en UTC
+    return Date.now() - new Date(`${row.validated_at.replace(' ', 'T')}Z`).getTime() < mfaValidityMs(frequency);
 }
 
+/**
+ * Enregistre une vérification réussie ; renvoie le jeton de l'appareil, à déposer dans le cookie « appareil de
+ * confiance » (seule son empreinte est conservée en base)
+ */
 export async function recordMfaValidation(userId: number) {
-    await prisma.mfaValidation.create({ data: { user_id: userId, validated_at: sqlTimestamp() } });
+    const token = crypto.randomBytes(32).toString('base64url');
+    await prisma.mfaValidation.create({
+        data: { user_id: userId, validated_at: sqlTimestamp(), device_hash: deviceHash(token) }
+    });
+    return token;
 }
 
 /** Supprime TOTP, validations et codes en attente d'un utilisateur (changement de téléphone) */
