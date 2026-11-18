@@ -2,6 +2,7 @@
 // (jokers * et ?, sans accents ni casse), dates (après, avant, entre, égal), oui / non ; doublons ; export CSV.
 import type { Ligne } from './lecture';
 import type { ColonneFiltrable } from './profil';
+import { celluleCsv } from '@/outils/csv';
 
 export type Operateur = 'AND' | 'OR';
 
@@ -267,7 +268,7 @@ export function clesEnDoublon(lignes: Ligne[], colonnes: string[]): Set<string> 
 
 /** Export CSV : valeurs entre guillemets, séparateur « ; », lignes CRLF, BOM UTF-8 (Excel) */
 export function csvAnalyse(lignes: Ligne[], colonnes: string[]): string {
-    const champ = (v: unknown) => `"${(v || '').toString().replace(/"/g, '""')}"`;
+    const champ = (v: unknown) => celluleCsv(v || '');
     return (
         '\uFEFF' +
         [colonnes.map(champ).join(';'), ...lignes.map(l => colonnes.map(c => champ(l[c])).join(';'))].join('\r\n')

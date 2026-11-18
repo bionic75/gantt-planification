@@ -2,6 +2,7 @@
 // disponibilités, experts proposés pour un créneau, export CSV du planning
 import type { CreneauPlanningHno, DisponibiliteHno } from '@/api/astreintes';
 import type { Ressource } from '@/api/ressources';
+import { sansFormule } from '@/outils/csv';
 
 const deux = (n: number) => String(n).padStart(2, '0');
 
@@ -171,7 +172,7 @@ export function csvPlanning(planning: CreneauPlanningHno[], ressources: Ressourc
         const r = ressources.find(x => x.id === s.resource_id);
         csv += `${d.toLocaleDateString('fr-FR')};${d.toLocaleDateString('fr-FR', { weekday: 'long' })};${
             s.type_creneau === 'soir' ? 'Soir (18h-08h)' : 'Journée complète'
-        };${r ? nomExpert(r) : 'Non assigné'};${r ? r.trigramme : '-'}\n`;
+        };${r ? sansFormule(nomExpert(r)) : 'Non assigné'};${r ? sansFormule(r.trigramme) : '-'}\n`;
     }
     return csv;
 }

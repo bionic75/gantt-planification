@@ -1,6 +1,7 @@
 // Reporting et exports : disponibilités / affectations, astreintes / HNO, carte des événements, exports CSV
 import { prisma } from '../../db/prisma.ts';
 import { idParam } from '../../db/values.ts';
+import { csvCell } from '../../lib/csv.ts';
 import { badRequest } from '../../lib/http-error.ts';
 
 const ACTIVITY_LABELS = {
@@ -175,7 +176,8 @@ export async function resourcesCsv() {
     let csv = '﻿'; // BOM UTF-8
     csv += 'ID,Nom,Prénom,Trigramme,Email,Téléphone,Taux MAD (%),SAMU,Début MAD,Fin MAD,Actif,Date création\n';
     for (const r of resources) {
-        csv += `${r.id},"${r.nom}","${r.prenom}","${r.trigramme}","${r.email || ''}","${r.telephone || ''}",${r.taux},"${r.samu}","${r.date_debut || ''}","${r.date_fin || ''}",${r.actif ? 'Oui' : 'Non'},"${r.created_at}"\n`;
+        const cells = [r.nom, r.prenom, r.trigramme, r.email, r.telephone].map(csvCell).join(',');
+        csv += `${r.id},${cells},${r.taux},${csvCell(r.samu)},${csvCell(r.date_debut)},${csvCell(r.date_fin)},${r.actif ? 'Oui' : 'Non'},"${r.created_at}"\n`;
     }
     return { csv, count: resources.length };
 }
@@ -200,6 +202,10 @@ const MONTH_NAMES = [
  */
 export async function ganttCsv(year: unknown, month: unknown) {
     if (!year || month === undefined) throw badRequest('Année et mois requis');
+    // Année sur 4 chiffres, mois de 0 à 11 : ils figurent dans le fichier et dans le nom proposé au téléchargement
+    if (!/^\d{4}$/.test(String(year)) || !/^\d{1,2}$/.test(String(month)) || Number(month) > 11) {
+        throw badRequest('Année ou mois invalide');
+    }
     const monthInt = parseInt(String(month));
     const monthStr = pad(monthInt + 1);
     const resources = await prisma.resource.findMany({
@@ -229,7 +235,7 @@ export async function ganttCsv(year: unknown, month: unknown) {
     csv += '\n';
 
     for (const resource of resources) {
-        csv += `"${resource.nom} ${resource.prenom}","${resource.trigramme}","${resource.samu}"`;
+        csv += [`${resource.nom} ${resource.prenom}`, resource.trigramme, resource.samu].map(csvCell).join(',');
         for (let day = 1; day <= lastDay; day++) {
             const halves = ['AM', 'PM'].map(p => {
                 const key = `${year}-${monthStr}-${pad(day)}_${p}`;
@@ -239,7 +245,8 @@ export async function ganttCsv(year: unknown, month: unknown) {
                 const loc = get('localisation');
                 const availLabel = avail !== undefined ? (avail === '1' ? 'Indispo' : 'Dispo') : '-';
                 const actLabel = act !== undefined ? getActivityLabel(act) : '-';
-                return `"${availLabel} / ${actLabel} / ${loc !== undefined ? loc : '-'}"`;
+                // Cellule commençant par un libellé fixe (pas de formule possible) : guillemets doublés seulement
+                return `"${`${availLabel} / ${actLabel} / ${loc !== undefined ? loc : '-'}`.replace(/"/g, '""')}"`;
             });
             csv += `,${halves.join(',')}`;
         }

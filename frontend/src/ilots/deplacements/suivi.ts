@@ -1,6 +1,7 @@
 // Reporting et administration des déplacements : synthèse et observation des bons de commande, filtres de la liste,
 // export CSV, tri des tableaux (comme l'ancien écran : valeurs affichées, valeurs vides en fin de liste)
 import type { AmoaCed, BonCommandeSuivi, DeplacementReporting } from '@/api/deplacements';
+import { sansFormule } from '@/outils/csv';
 import { dateFr } from './calculs';
 
 // ── Tri ──────────────────────────────────────────────────────────────────────
@@ -257,7 +258,7 @@ export function amoaPresents(liste: DeplacementReporting[], amoaCed: AmoaCed[]):
     return [...noms.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([id, libelle]) => ({ id, libelle }));
 }
 
-/** Export CSV de la liste filtrée : séparateur « ; », BOM UTF-8 (Excel), valeurs telles quelles */
+/** Export CSV de la liste filtrée : séparateur « ; », BOM UTF-8 (Excel), valeurs sans guillemets, formules neutralisées */
 export function csvReporting(liste: DeplacementReporting[], amoaCed: AmoaCed[]) {
     const entetes = [
         'N° de BDC',
@@ -281,7 +282,7 @@ export function csvReporting(liste: DeplacementReporting[], amoaCed: AmoaCed[]) 
         d.ville,
         d.nb_uo
     ]);
-    return '\uFEFF' + entetes.join(';') + '\n' + lignes.map(l => l.join(';')).join('\n');
+    return '\uFEFF' + entetes.join(';') + '\n' + lignes.map(l => l.map(sansFormule).join(';')).join('\n');
 }
 
 export const nomFichierCsv = (aujourdhui = new Date()) =>

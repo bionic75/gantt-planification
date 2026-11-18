@@ -54,7 +54,10 @@ Fonctionnalité: En-tête de la Planification : utilisateur et profil, changemen
     Et la connexion du compte de test indique l'onglet par défaut choisi
     Quand je saisis le nouveau mot de passe "court" dans mon profil
     Alors mon profil signale "8 caractères minimum, 1 caractère spécial requis"
-    Quand je saisis le nouveau mot de passe "Profil-E2E-2026!" et sa confirmation dans mon profil
+    Quand je saisis le nouveau mot de passe "Profil-E2E-2026!" et sa confirmation sans le mot de passe actuel
+    Et je demande le changement du mot de passe de mon profil
+    Alors mon profil signale "Veuillez remplir tous les champs"
+    Quand je saisis mon mot de passe actuel, le nouveau mot de passe "Profil-E2E-2026!" et sa confirmation dans mon profil
     Alors mon profil signale "Les mots de passe correspondent"
     Quand je change le mot de passe de mon profil et confirme
     Alors le nouveau mot de passe du compte de test est accepté

@@ -2,6 +2,7 @@
 import nodemailer, { type SendMailOptions, type Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import { env } from '../config/env.ts';
+import { decryptSecret, encryptSecret, isEncryptedSecret } from './secrets.ts';
 
 /**
  * TLS du serveur SMTP : certificat vérifié et TLS 1.2 minimum (identifiants SMTP protégés d'une interception).
@@ -36,17 +37,40 @@ export function setEmailConfig(cfg: EmailConfig) {
     Object.assign(emailConfig, cfg);
 }
 
-/** Charge la configuration SMTP enregistrée (écran Administration), si elle existe */
+/**
+ * Mot de passe SMTP enregistré, en clair ; '' s'il est illisible (sauvegarde restaurée depuis un autre serveur : à
+ * ressaisir). Une valeur en clair (version précédente, ancienne sauvegarde) est lue telle quelle.
+ */
+export function storedSmtpPassword(stored: string | null | undefined) {
+    if (!stored) return '';
+    return isEncryptedSecret(stored) ? (decryptSecret(stored) ?? '') : stored;
+}
+
+/**
+ * Charge la configuration SMTP enregistrée (écran Administration), si elle existe. Un mot de passe encore en clair en
+ * base (version précédente, ancienne sauvegarde restaurée) y est chiffré.
+ */
 export async function loadEmailConfig() {
     const { prisma } = await import('../db/prisma.ts');
     const row = await prisma.emailConfig.findUnique({ where: { id: 1 } });
     if (!row) return false;
+    const password = storedSmtpPassword(row.password);
+    if (row.password && !isEncryptedSecret(row.password)) {
+        try {
+            await prisma.emailConfig.update({ where: { id: 1 }, data: { password: encryptSecret(row.password) } });
+            console.log('🔒 Mot de passe SMTP chiffré en base');
+        } catch (e) {
+            console.warn(`⚠️  Mot de passe SMTP laissé en clair : ${(e as Error).message}`);
+        }
+    } else if (row.password && !password) {
+        console.warn('⚠️  Mot de passe SMTP illisible sur ce serveur (autre clé de chiffrement) : à ressaisir');
+    }
     setEmailConfig({
         host: row.host,
         port: row.port,
         secure: row.secure === 1,
         user: row.user,
-        password: row.password
+        password
     });
     return true;
 }

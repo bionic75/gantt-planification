@@ -2,6 +2,7 @@
 // sauvegarde du planning par email (n°2), diagnostic et nettoyage des clés de planification
 import { prisma } from '../../db/prisma.ts';
 import { idParam, sqlTimestamp } from '../../db/values.ts';
+import { csvCell } from '../../lib/csv.ts';
 import { badRequest, notFound } from '../../lib/http-error.ts';
 import { getJsonSetting, setSetting } from '../../services/settings.ts';
 
@@ -321,7 +322,15 @@ export function csvLine(
     const act = data.activity || '1';
     if (excludeEmpty && avail === '1' && act === '1') return null;
     const loc = data.localisation || '-';
-    return `"${resource.prenom} ${resource.nom}","${date}","${period}","${AVAIL_LABELS[avail] || avail}","${ACT_LABELS[act] || act}","${loc}"\n`;
+    const cells = [
+        `${resource.prenom} ${resource.nom}`,
+        date,
+        period,
+        AVAIL_LABELS[avail] || avail,
+        ACT_LABELS[act] || act,
+        loc
+    ];
+    return `${cells.map(csvCell).join(',')}\n`;
 }
 
 /** Horodatage du nom de fichier de sauvegarde (AAAA-MM-JJ_HH-MM) */

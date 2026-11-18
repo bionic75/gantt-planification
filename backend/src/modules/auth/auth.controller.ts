@@ -4,16 +4,37 @@ import { badRequest, forbidden, HttpError, notFound, unauthorized } from '../../
 import { emailConfig, sendEmail } from '../../lib/mailer.ts';
 import { PASSWORD_RULE, passwordStrengthError } from '../../lib/password.ts';
 import { rejectRevokedSession } from '../../middlewares/auth.ts';
-import { activeSessions, revokeUserSessions } from '../../state/sessions.ts';
+import { activeSessions, regenerateSession, revokeUserSessions } from '../../state/sessions.ts';
 import { MFA_ICONES, RESET_ICONES, mfaCodeEmail, passwordResetLinkEmail } from './auth.emails.ts';
 import * as auth from './auth.service.ts';
-import { consumeMfaAttempt, MAX_CODE_SENDS, startMfaPending } from './mfa-pending.ts';
+import {
+    clearMfaFailures,
+    consumeMfaAttempt,
+    MAX_CODE_SENDS,
+    mfaAccountLocked,
+    recordMfaFailure,
+    startMfaPending
+} from './mfa-pending.ts';
 import * as mfa from './mfa.service.ts';
 
 import type { Request, Response } from 'express';
 import type { Profile } from './auth.service.ts';
 
 const tooManyAttempts = () => new HttpError(429, 'Trop de tentatives. Veuillez vous reconnecter.');
+
+/** Essai de code autorisé : compte non bloqué (codes erronés), essais de cette connexion non épuisés */
+function assertMfaAttempt(req: Request, userId: number) {
+    if (mfaAccountLocked(userId)) {
+        throw new HttpError(429, 'Trop de codes erronés pour ce compte. Réessayez dans 15 minutes.');
+    }
+    if (!consumeMfaAttempt(req)) throw tooManyAttempts();
+}
+
+/** Code erroné : compté pour le compte, puis refus */
+function wrongCode(userId: number, message = 'Code invalide ou expiré') {
+    recordMfaFailure(userId);
+    return unauthorized(message);
+}
 
 // ---------- Appareil de confiance (dispense de double authentification) ----------
 
@@ -35,15 +56,6 @@ async function trustDevice(req: Request, res: Response, userId: number, frequenc
     const maxAge = mfa.mfaValidityMs(frequency);
     if (maxAge > 0)
         res.cookie(MFA_COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge, path: '/' });
-}
-
-/** Nouvel identifiant de session, données conservées (élévation de droits : changement de profil) */
-async function regenerateSession(req: Request) {
-    // Données de la session seulement : le cookie est recréé par regenerate()
-    const data: Record<string, unknown> = { ...req.session };
-    delete data.cookie;
-    await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve(undefined))));
-    Object.assign(req.session, data);
 }
 
 const PROFILE_LABELS: Record<string, string> = {
@@ -385,7 +397,7 @@ export async function sendMfaCode(req: Request, res: Response) {
 export async function verifyMfa(req: Request, res: Response) {
     const { userId, profile } = pendingOf(req);
     const code = String(req.body.code || '');
-    if (!consumeMfaAttempt(req)) throw tooManyAttempts();
+    assertMfaAttempt(req, userId);
 
     // Seules les méthodes de la configuration sont acceptées
     const config = await mfa.getMfaConfig();
@@ -395,7 +407,8 @@ export async function verifyMfa(req: Request, res: Response) {
         const secret = await mfa.getTotpSecret(userId);
         valid = !!secret && mfa.verifyTotp(secret, code);
     }
-    if (!valid) throw unauthorized('Code invalide ou expiré');
+    if (!valid) throw wrongCode(userId);
+    clearMfaFailures(userId);
 
     await trustDevice(req, res, userId, config.frequency);
     await completeLogin(req, res, await auth.getUserForLogin(userId), profile, true);
@@ -436,10 +449,11 @@ export async function unlockTotp(req: Request, res: Response) {
     if (await mfa.isTotpConfigured(pending.userId)) {
         throw forbidden('TOTP déjà configuré. Contactez un administrateur pour le réinitialiser.');
     }
-    if (!consumeMfaAttempt(req)) throw tooManyAttempts();
+    assertMfaAttempt(req, pending.userId);
     if (!(await mfa.consumeEmailCode(pending.userId, String(req.body.code || '')))) {
-        throw unauthorized('Code invalide ou expiré');
+        throw wrongCode(pending.userId);
     }
+    clearMfaFailures(pending.userId);
     pending.emailVerified = true;
     res.json({ success: true });
 }
@@ -468,8 +482,9 @@ export async function confirmTotp(req: Request, res: Response) {
 
     await assertTotpEnrolmentAllowed(pending);
     if (!secret) throw badRequest('Aucune configuration TOTP en cours.');
-    if (!consumeMfaAttempt(req)) throw tooManyAttempts();
-    if (!mfa.verifyTotp(secret, code)) throw unauthorized('Code invalide');
+    assertMfaAttempt(req, userId);
+    if (!mfa.verifyTotp(secret, code)) throw wrongCode(userId, 'Code invalide');
+    clearMfaFailures(userId);
 
     await mfa.saveTotpSecret(userId, secret);
     await trustDevice(req, res, userId, (await mfa.getMfaConfig()).frequency);

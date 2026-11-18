@@ -451,13 +451,13 @@ Given(
     async ({ monde }, date) => {
         const { resourceId } = await ressourceExpert(monde);
         const expert = await monde.apiDe('Expert');
-        // Notifications de l'expert de test lues en fin de scénario (aucune ne reste affichée)
+        const admin = await adminApi(monde);
+        const cellule = cle(resourceId, 'activity', date, 'AM');
+        // Notifications de l'expert de test lues et affectation retirée en fin de scénario
         monde.aNettoyer('notifications de l’expert de test', () => expert.post('/api/notifications/mark-read', {}));
-        await (
-            await adminApi(monde)
-        ).ok('POST', '/api/notifications/create-batch', {
-            notifications: [{ resourceId, date, period: 'Matin', activity: 'SAMU (Déploiement)', location: '-' }]
-        });
+        monde.aNettoyer('affectation de test', () => admin.ok('POST', '/api/schedule/save', { [cellule]: null }));
+        // Affectation posée par l'administrateur dans la planification : notification émise par le serveur
+        await admin.ok('POST', '/api/schedule/save', { [cellule]: '5' });
     }
 );
 

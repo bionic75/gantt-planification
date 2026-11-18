@@ -188,6 +188,13 @@ describe('compte administrateur initial', { timeout: 120000 }, () => {
         }
     });
 
+    // Audit de sécurité, lot 2 : pas de compte admin / admin sur une instance de production
+    it('en production, sans INITIAL_ADMIN_PASSWORD : démarrage refusé', async () => {
+        await expect(startServer({ initialAdmin: null, nodeEnv: 'production' })).rejects.toThrow(
+            /INITIAL_ADMIN_PASSWORD obligatoire en production/
+        );
+    });
+
     it('sans ces variables : admin / admin', async () => {
         const other = await startServer({ initialAdmin: null });
         try {
@@ -214,12 +221,9 @@ describe('changement de mot de passe obligatoire', () => {
         const blocked = await client.get('/api/resources');
         expect(blocked.status).toBe(403);
         expect(blocked.data.error).toBe('PASSWORD_CHANGE_REQUIRED');
+        // Audit de sécurité, lot 2 : le routage ignore la casse, le contrôle aussi
+        expect((await client.get('/API/Resources')).status).toBe(403);
         expect((await client.get('/api/check-session')).data.mustChangePassword).toBe(true);
-        // Ancienne route de changement (6 caractères) : bloquée aussi
-        expect(
-            (await client.post('/api/users/change-password', { oldPassword: user.password, newPassword: 'abcdef' }))
-                .status
-        ).toBe(403);
 
         // Même mot de passe, ou trop faible : refusé
         expect((await client.post('/api/profile/change-password', { newPassword: user.password })).status).toBe(400);

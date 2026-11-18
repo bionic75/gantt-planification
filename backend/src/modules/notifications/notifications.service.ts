@@ -1,6 +1,4 @@
-// Notifications : messages temps réel (SSE), notifications des experts, affectations en attente,
-// suivi des envois groupés, notifications Teams
-import { env } from '../../config/env.ts';
+// Notifications : messages temps réel (SSE), notifications des experts, suivi des envois groupés, notifications Teams
 import { prisma } from '../../db/prisma.ts';
 import { idParam, sqlTimestamp } from '../../db/values.ts';
 import { createEmailTransporter, emailConfig } from '../../lib/mailer.ts';
@@ -70,67 +68,7 @@ export async function appendToConnectionLog(logId: number, text: string) {
     await prisma.connectionLog.update({ where: { id: logId }, data: { modifications: row.modifications + text } });
 }
 
-// ---------- Affectations en attente de notification ----------
-
-export async function addPendingNotification(
-    body: { sessionId: unknown; resourceId: unknown; expertId: unknown; assignmentData: unknown },
-    userId: number
-) {
-    const row = await prisma.pendingNotification.create({
-        data: {
-            session_id: (body.sessionId == null ? null : String(body.sessionId)) as string,
-            resource_id: idParam(body.resourceId),
-            expert_id: idParam(body.expertId),
-            assignment_data: (JSON.stringify(body.assignmentData) ?? null) as string,
-            created_by: userId
-        }
-    });
-    return row.id;
-}
-
-/**
- * Affectations en attente d'une session, avec l'expert (compte et ressource) et, si demandé, l'auteur
- * (lignes sans compte, ressource ou auteur existant ignorées)
- */
-export async function listPendingNotifications(sessionId: string, { withCreator = false } = {}) {
-    const rows = await prisma.pendingNotification.findMany({
-        where: { session_id: sessionId },
-        orderBy: { id: 'asc' }
-    });
-    const [users, resources] = await Promise.all([
-        prisma.user.findMany({
-            where: { id: { in: rows.flatMap(r => [r.expert_id, r.created_by]) } },
-            select: { id: true, email: true, nom: true, prenom: true }
-        }),
-        prisma.resource.findMany({
-            where: { id: { in: rows.map(r => r.resource_id) } },
-            select: { id: true, nom: true, prenom: true }
-        })
-    ]);
-    const userById = new Map(users.map(u => [u.id, u]));
-    const resById = new Map(resources.map(r => [r.id, r]));
-    return rows.flatMap(pn => {
-        const u = userById.get(pn.expert_id);
-        const r = resById.get(pn.resource_id);
-        const creator = userById.get(pn.created_by);
-        if (!u || !r || (withCreator && !creator)) return [];
-        return [
-            {
-                ...pn,
-                email: u.email,
-                nom: u.nom,
-                prenom: u.prenom,
-                resource_nom: r.nom,
-                resource_prenom: r.prenom,
-                ...(withCreator && creator ? { creator_nom: creator.nom, creator_prenom: creator.prenom } : {})
-            }
-        ];
-    });
-}
-
-export async function deletePendingNotifications(sessionId: string) {
-    return (await prisma.pendingNotification.deleteMany({ where: { session_id: sessionId } })).count;
-}
+// ---------- Experts destinataires ----------
 
 /** Experts (ressources actives) avec l'email de leur compte : une ligne par compte, ou une sans compte */
 export async function listActiveExperts(resourceIds: unknown[]) {
@@ -358,16 +296,6 @@ export async function sendTeamsNotificationFromServer(type: string, data: any) {
     } catch (error) {
         console.error('📢 Erreur envoi notification Teams:', error);
     }
-}
-
-/** Notification Teams demandée par l'interface */
-export async function notifyTeams(type: string, data: any) {
-    const r = await sendTeams(type, data, {
-        detailedRequest: true,
-        fromAddress: env.SMTP_USER || 'noreply@esante.gouv.fr'
-    });
-    if (r.success) console.log(`📢 Notification Teams [${type}] envoyée`);
-    return r;
 }
 
 export { logTeams };

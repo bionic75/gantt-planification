@@ -51,7 +51,7 @@ describe.skipIf(!BROWSER_PATH)('PDF et diffusion des CRA', () => {
     }, 60000);
 
     it('préparation du PDF puis diffusion à la RH', async () => {
-        const { craId } = await visedCra(2);
+        const { craId, expert } = await visedCra(2);
 
         // Visé N1 seulement : PDF non disponible
         const notReady = await createExpert(admin);
@@ -83,6 +83,13 @@ describe.skipIf(!BROWSER_PATH)('PDF et diffusion des CRA', () => {
                 d.recipient_type
             ])
         ).toEqual([['rh@es.test', 'rh_es']]);
+
+        // Audit de sécurité, lot 2 : PDF enregistré lu avec les droits du CRA
+        const other = await createExpert(admin);
+        const otherClient = await loginAs(server, other.user, 'expert');
+        expect(isPdf(await expert.get(`/api/cra/pdf-saved/${pdfFilename}`))).toBe(true);
+        expect((await otherClient.get(`/api/cra/pdf-saved/${pdfFilename}`)).status).toBe(403);
+        expect((await otherClient.get('/api/cra/pdf-saved/SI-SAMU_CRA_inconnu.pdf')).status).toBe(403);
 
         const rhUser = await createUser(admin, { is_rh: 1 });
         const rh = await loginAs(server, rhUser, 'rh');

@@ -26,7 +26,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-339 routes, par module (`backend/src/modules/<module>`) :
+332 routes, par module (`backend/src/modules/<module>`) :
 
 ## admin
 
@@ -347,20 +347,14 @@ Protections :
 | GET | `/api/email-queue/status/:batchId` | auth |
 | POST | `/api/notifications/clear-all` | admin |
 | GET | `/api/notifications/count` | auth |
-| POST | `/api/notifications/create-batch` | auth |
 | GET | `/api/notifications/list` | auth |
 | POST | `/api/notifications/mark-read` | auth |
-| POST | `/api/pending-notifications` | auth |
-| GET | `/api/pending-notifications/:sessionId` | auth |
-| DELETE | `/api/pending-notifications/:sessionId` | auth |
 | POST | `/api/push-message` | auth |
 | POST | `/api/request-assignment` | auth |
 | GET | `/api/resource-calendar/:resourceId` | auth |
 | POST | `/api/send-assignment-emails` | auth |
-| POST | `/api/send-assignment-notifications` | auth |
 | POST | `/api/send-calendar-email` | auth |
 | GET | `/api/sse` | auth |
-| POST | `/api/teams/notify` | auth |
 | POST | `/api/teams/test` | admin |
 
 ## poi
@@ -463,6 +457,5 @@ Protections :
 | POST | `/api/users/:id/rh-access` | admin |
 | POST | `/api/users/:id/toggle` | admin |
 | GET | `/api/users/amoa-ced` | deplacements |
-| POST | `/api/users/change-password` | auth |
 | GET | `/api/users/public` | auth |
 | GET | `/api/users/search` | admin |

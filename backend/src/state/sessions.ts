@@ -2,6 +2,8 @@
 // stockées en base (db/session-store.ts) : après un redémarrage, ce suivi se reconstitue à la requête suivante.
 import { terminateUserSessions } from '../db/session-store.ts';
 
+import type { Request } from 'express';
+
 export interface SessionActive {
     lastActivity: number;
     profile?: string | null;
@@ -17,6 +19,15 @@ export const activeSessions = new Map<number, SessionActive>();
 export async function revokeUserSessions(userId: number) {
     activeSessions.delete(userId);
     await terminateUserSessions(userId);
+}
+
+/** Nouvel identifiant pour la session courante, données conservées (changement de droits, de mot de passe) */
+export async function regenerateSession(req: Request) {
+    // Données de la session seulement : le cookie est recréé par regenerate()
+    const data: Record<string, unknown> = { ...req.session };
+    delete data.cookie;
+    await new Promise((resolve, reject) => req.session.regenerate(err => (err ? reject(err) : resolve(undefined))));
+    Object.assign(req.session, data);
 }
 
 export function touchSession(userId: number) {

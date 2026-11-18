@@ -279,8 +279,14 @@ export async function preparePdf(req: Request, res: Response) {
     res.json({ success: true, pdfFilename: await diffusion.prepareSignedPdf(req.params.id) });
 }
 
+/** PDF signé d'un CRA : mêmes droits que le CRA ; fichier sans CRA connu (ancienne diffusion) : administration et RH */
 export async function pdfSaved(req: Request, res: Response) {
-    const { filename, buffer } = await diffusion.savedPdf(req.params.filename);
+    const { filename, buffer } = await diffusion.savedPdf(req.params.filename, cra => {
+        if (cra) assertCanRead(req, cra);
+        else if (req.session.activeProfile !== 'admin' && req.session.activeProfile !== 'rh') {
+            throw forbidden('Accès interdit');
+        }
+    });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(buffer);

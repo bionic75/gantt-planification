@@ -154,53 +154,76 @@ describe('emails', () => {
         );
     });
 
-    it('affectations en attente : enregistrement, liste, envoi groupé', async () => {
+    // Audit de sécurité, lot 2 : expéditeur pris dans la session, profils alignés sur l'interface
+    it("expéditeur de la demande d'affectation : le compte connecté, jamais celui de la requête", async () => {
         const { user, resource } = await createExpert(admin);
-        const sessionId = `s-${Date.now()}`;
-        await admin.post('/api/pending-notifications', {
-            sessionId,
-            resourceId: resource.id,
-            expertId: user.id,
-            assignmentData: { dates: '01/06/2027', activity: 'ANS', location: 'Paris' }
+        const r = await admin.post('/api/request-assignment', {
+            fromName: 'Faux nom',
+            fromEmail: 'pirate@exterieur.example',
+            expertIds: [resource.id],
+            subject: 'Expéditeur',
+            startDate: '2027-06-07',
+            startPeriod: 'Matin',
+            endDate: '2027-06-08',
+            endPeriod: 'Soir',
+            message: 'Bonjour'
         });
-        const list = (await admin.get(`/api/pending-notifications/${sessionId}`)).data;
-        expect(list).toEqual([
-            expect.objectContaining({ session_id: sessionId, email: user.email, resource_nom: resource.nom })
-        ]);
-        const sent = await admin.post('/api/send-assignment-notifications', { sessionId });
-        expect(sent.data).toEqual({
-            success: true,
-            results: [{ success: true, expert: `${user.prenom} ${user.nom}` }]
-        });
-        const pending = await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*Nouvelle affectation`), 15000);
-        expect(pending).toMatch(/Content-ID: <mallette-grand@planification>/i);
-        expect((await admin.get(`/api/pending-notifications/${sessionId}`)).data).toEqual([]);
-        expect((await admin.delete(`/api/pending-notifications/${sessionId}`)).data).toEqual({
-            success: true,
-            deleted: 0
-        });
+        expect(r.status).toBe(200);
+        const mail = await smtp.waitFor(new RegExp(`To: ${escape(user.email)}[\\s\\S]*Exp`), 15000);
+        expect(mail).not.toContain('pirate@exterieur.example');
+        expect(mail).not.toContain('Faux nom');
+    });
+
+    it('invitations refusées au profil RH, demande d’affectation refusée aux profils expert et RH', async () => {
+        const rhUser = await createUser(admin, { is_rh: 1 });
+        const rh = await loginAs(server, rhUser, 'rh');
+        const { user: expertUser, resource } = await createExpert(admin);
+        const expert = await loginAs(server, expertUser, 'expert');
+        const invitation = { assignments: [{ resourceId: resource.id, assignments: [] }] };
+        expect((await rh.post('/api/send-assignment-emails', invitation)).status).toBe(403);
+        for (const client of [rh, expert]) {
+            expect((await client.post('/api/request-assignment', { expertIds: [resource.id] })).status).toBe(403);
+        }
+    });
+
+    // Audit de sécurité, lot 2 : routes inutilisées par l'interface, ouvertes à tout compte connecté (faux emails
+    // d'affectation, message Teams libre), supprimées
+    it.each([
+        ['POST', '/api/pending-notifications'],
+        ['DELETE', '/api/pending-notifications/s-1'],
+        ['POST', '/api/send-assignment-notifications'],
+        ['POST', '/api/notifications/create-batch'],
+        ['POST', '/api/teams/notify']
+    ])('%s %s supprimée', async (method, url) => {
+        expect((await admin.request(method, url, {})).status).toBe(404);
     });
 });
 
 describe('notifications des experts', () => {
-    it('création groupée, liste avec la localisation, lecture, purge', async () => {
+    it('liste avec la localisation (une notification par demi-journée), lecture, purge', async () => {
         const { user, resource } = await createExpert(admin);
         const expert = await loginAs(server, user, 'expert');
-        await admin.post('/api/schedule', { [`${resource.id}_localisation_2027-06-10_AM`]: 'SAMU 13' });
-        const r = await admin.post('/api/notifications/create-batch', {
-            notifications: [
-                { resourceId: resource.id, date: '2027-06-10', period: 'Matin', activity: 'ANS', location: 'SAMU 13' },
-                { resourceId: resource.id, date: '2027-06-10', period: 'Matin', activity: 'Qualif' },
-                { resourceId: resource.id, date: '2027-06-11', period: 'Après-midi', activity: 'Divers' },
-                { resourceId: 999999, date: '2027-06-11', period: 'Matin', activity: 'x' }
+        const r = resource.id;
+        // Notifications créées par les affectations posées dans le planning par l'administrateur (après la réponse)
+        await admin.post('/api/schedule/save', {
+            updates: [
+                { key: `${r}_localisation_2027-06-10_AM`, value: 'SAMU 13' },
+                { key: `${r}_activity_2027-06-10_AM`, value: '5' }
             ]
         });
-        expect(r.data).toEqual({ success: true, created: 3, errors: 0 });
+        await new Promise(res => setTimeout(res, 300));
+        // Même demi-journée réaffectée : la notification non lue est remplacée
+        await admin.post('/api/schedule/save', { updates: [{ key: `${r}_activity_2027-06-10_AM`, value: '7' }] });
+        await admin.post('/api/schedule/save', { updates: [{ key: `${r}_activity_2027-06-11_PM`, value: '8' }] });
+        for (let i = 0; i < 50 && (await expert.get('/api/notifications/count')).data.count < 2; i++) {
+            await new Promise(res => setTimeout(res, 100));
+        }
+        await new Promise(res => setTimeout(res, 300));
         expect((await expert.get('/api/notifications/count')).data).toEqual({ count: 2 });
         const list = (await expert.get('/api/notifications/list')).data.notifications;
         const byDate = Object.fromEntries(list.map((n: any) => [n.date, n]));
         expect(byDate['2027-06-10']).toMatchObject({
-            activity_name: 'Qualif',
+            activity_name: 'Qualification (SAMU 13)',
             requester_name: 'Système Admin',
             action_type: 'Nouvelle affectation',
             localisation: 'SAMU 13'
@@ -274,30 +297,12 @@ describe('Teams', () => {
         });
         await smtp.waitFor(/To: canal@teams\.test[\s\S]*Test de notification/, 15000);
 
-        expect((await admin.post('/api/teams/notify', { type: 'evenement', data: {} })).data).toEqual({
-            success: false,
-            reason: 'Configuration non trouvée'
-        });
         await admin.put('/api/settings', {
             key: 'automation_3_config',
             value: JSON.stringify({ enabled: true, notifications: ['evenement'], teamsEmail: 'canal@teams.test' })
         });
-        expect((await admin.post('/api/teams/notify', { type: 'astreinte', data: {} })).data).toEqual({
-            success: false,
-            reason: 'Type de notification non activé'
-        });
-        expect(
-            (
-                await admin.post('/api/teams/notify', {
-                    type: 'evenement',
-                    data: { name: 'Reunion Teams', date: '01/06' }
-                })
-            ).data
-        ).toEqual({ success: true });
-        // Textes recherchés en ASCII : le puits SMTP de test ne décode pas l'UTF-8
-        await smtp.waitFor(/To: canal@teams\.test[\s\S]*Reunion Teams/, 15000);
-
-        // Notification émise par le serveur à la création d'un événement
+        // Notification émise par le serveur à la création d'un événement (textes recherchés en ASCII : le puits SMTP de
+        // test ne décode pas l'UTF-8)
         await admin.post('/api/my-custom-events', { startDate: '2027-06-20', label: 'Evenement Teams' });
         await smtp.waitFor(/To: canal@teams\.test[\s\S]*Evenement Teams/, 15000);
     });

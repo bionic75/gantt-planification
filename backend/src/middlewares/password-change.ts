@@ -14,8 +14,10 @@ const ALLOWED = new Set([
 ]);
 
 export function requirePasswordChanged(req: Request, res: Response, next: NextFunction) {
-    if (!req.session?.mustChangePassword || !req.path.startsWith('/api/')) return next();
-    if (ALLOWED.has(`${req.method} ${req.path}`)) return next();
+    // Routes Express insensibles à la casse : « /API/... » mène aux mêmes routes que « /api/... »
+    const path = req.path.toLowerCase();
+    if (!req.session?.mustChangePassword || !path.startsWith('/api/')) return next();
+    if (ALLOWED.has(`${req.method} ${path}`)) return next();
     res.status(403).json({
         error: 'PASSWORD_CHANGE_REQUIRED',
         message: 'Vous devez choisir un nouveau mot de passe avant de continuer.'

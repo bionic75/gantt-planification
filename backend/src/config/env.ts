@@ -61,10 +61,11 @@ const schema = z
             .trim()
             .optional()
             .transform(v => v || 'admin'),
+        // Vide : « admin » hors production ; obligatoire en production pour créer le compte (db/seed.ts)
         INITIAL_ADMIN_PASSWORD: z
             .string()
             .optional()
-            .transform(v => v || 'admin'),
+            .transform(v => v || ''),
         SMTP_USER: optionalString,
         // Serveur SMTP au certificat invalide : vérification TLS désactivée (déconseillé)
         SMTP_TLS_INSECURE: z

@@ -151,6 +151,19 @@ describe('exports CSV', () => {
         expect(r.headers.get('content-type')).toMatch(/text\/csv/);
         expect(r.data).toContain(`${res.id},"${res.nom}","${res.prenom}","${res.trigramme}"`);
     });
+
+    // Audit de sécurité, lot 2 : une valeur saisie ne devient pas une formule dans le tableur
+    it('formules neutralisées (apostrophe), année et mois du planning contrôlés', async () => {
+        const res = await createResource(admin, { prenom: '=1+2' });
+        expect(res.prenom.startsWith('=')).toBe(true);
+        const r = await admin.get('/api/export/resources');
+        expect(r.data).toContain(`${res.id},"${res.nom}","'${res.prenom}"`);
+        const g = await admin.get('/api/export/gantt?year=2027&month=1');
+        expect(g.data).toContain(`"${res.nom} ${res.prenom}"`); // nom en tête : pas de formule possible
+        expect((await admin.get('/api/export/gantt?year=2027%0Ax&month=1')).status).toBe(400);
+        expect((await admin.get('/api/export/gantt?year=2027&month=12')).status).toBe(400);
+        expect((await admin.get('/api/export/gantt?year=2027&month=-1')).status).toBe(400);
+    });
 });
 
 describe('carte des événements', () => {

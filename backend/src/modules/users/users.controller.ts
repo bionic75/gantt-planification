@@ -3,7 +3,7 @@ import { idParam } from '../../db/values.ts';
 import { badRequest, forbidden } from '../../lib/http-error.ts';
 import { sendEmail } from '../../lib/mailer.ts';
 import { logUserAction } from '../../services/action-log.ts';
-import { activeSessions, revokeUserSessions } from '../../state/sessions.ts';
+import { activeSessions, regenerateSession, revokeUserSessions } from '../../state/sessions.ts';
 import { accountCreatedEmail, passwordResetByAdminEmail } from './users.emails.ts';
 import * as service from './users.service.ts';
 
@@ -199,13 +199,20 @@ export async function resetPassword(req: Request, res: Response) {
     res.json({ success: true, emailSent });
 }
 
-export async function changePassword(req: Request, res: Response) {
-    await service.changePassword(userId(req), req.body.oldPassword, req.body.newPassword);
-    res.json({ success: true });
-}
-
+/**
+ * Changement du mot de passe : mot de passe actuel exigé, sauf changement imposé à la connexion (le compte vient de
+ * le saisir). Les autres sessions du compte sont fermées et la session courante change d'identifiant.
+ */
 export async function changeProfilePassword(req: Request, res: Response) {
-    await service.changeProfilePassword(userId(req), req.body.newPassword);
+    const imposed = !!req.session.mustChangePassword;
+    await service.changeProfilePassword(
+        userId(req),
+        req.body.newPassword,
+        imposed ? undefined : { currentPassword: req.body.currentPassword }
+    );
+    await revokeUserSessions(userId(req));
+    // La session courante, marquée fermée en base, est recréée sous un nouvel identifiant
+    await regenerateSession(req);
     req.session.mustChangePassword = false;
     logUserAction(req, 'Changement de mot de passe', { userId: userId(req) });
     res.json({ success: true });

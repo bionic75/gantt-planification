@@ -120,7 +120,7 @@ Fonctionnalité: Fenêtres de saisie et de notification de la planification
     Et que je suis connecté en tant que "Expert"
     Alors la pastille des nouvelles affectations est affichée
     Quand j'ouvre les nouvelles affectations
-    Alors les nouvelles affectations présentent le "04/08/2031", "Matin", "SAMU (Déploiement)" de l'administrateur de test
+    Alors les nouvelles affectations présentent le "04/08/2031", "Matin", "ANS (Déploiement)" de l'administrateur de test
     Quand je ferme les nouvelles affectations
     Alors la pastille des nouvelles affectations est masquée
     Et les notifications de l'expert de test sont lues

@@ -183,6 +183,11 @@ describe('exports', () => {
         expect(csv).toContain('"FORMATION ""A""","2031-05-12","2031-05-12","SAMU 44","Léa Durand","x@y.fr"');
     });
 
+    it('CSV : formule d’un participant externe neutralisée', () => {
+        const csv = exportCsv([evt({ external_participants: [{ nom: '', prenom: '', email: '=cmd|x!A1' }] })]);
+        expect(csv).toContain('"\'=cmd|x!A1"');
+    });
+
     it('HTML : page autonome, libellé échappé', () => {
         const html = exportHtml([e], new Date(2031, 4, 12));
         expect(html).toContain('<title>Événements exportés</title>');
@@ -190,6 +195,23 @@ describe('exports', () => {
         expect(html).toContain('FORMATION &quot;A&quot;');
         expect(html).toContain('<td>SAMU 44</td>');
         expect(html).not.toContain('Description');
+    });
+
+    // Audit de sécurité, lot 2 : fichier ouvert hors de l'application, sans sa politique de contenu
+    it('HTML : participants et couleurs saisis par les utilisateurs neutralisés', () => {
+        const piege = evt({
+            type_id: 1,
+            type_long: 'Formation',
+            config: '{"bgColor":"red;background:url(https://x)","textColor":"#fff"}',
+            participants: [{ user_id: 1, nom: '<b>Durand</b>', prenom: 'Léa', email: null }],
+            external_participants: [{ nom: '', prenom: '', email: '<img src=x onerror=alert(1)>' }]
+        });
+        const html = exportHtml([piege], new Date(2031, 4, 12));
+        expect(html).not.toContain('<img');
+        expect(html).not.toContain('<b>');
+        expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+        expect(html).not.toContain('url(https://x)');
+        expect(html).toContain('background:#607d8b');
     });
 });
 
