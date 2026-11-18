@@ -31,6 +31,16 @@ async function expertClient() {
 }
 
 describe('saisie des astreintes / HNO', () => {
+    // Audit de sécurité, lot 4 : même règle que l'interface (bouton réservé aux profils administrateur et expert)
+    it('création et modification refusées aux profils utilisateur et RH', async () => {
+        const user = await createUser(admin, { is_user: 1, is_rh: 1 });
+        for (const profile of ['user', 'rh']) {
+            const client = await loginAs(server, user, profile);
+            expect((await client.post('/api/astreintes', line())).status).toBe(403);
+            expect((await client.put('/api/astreintes/1', line())).status).toBe(403);
+        }
+    });
+
     it("création par l'expert, visible dans ses astreintes et sur le planning", async () => {
         const { user, resource, client } = await expertClient();
         const r = await client.post('/api/astreintes', line({ user_id: 999 }));

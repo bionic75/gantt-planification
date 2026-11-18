@@ -1,6 +1,7 @@
 // Sauvegarde complète / restauration (SQLite) : création, analyse, restauration, historique des migrations conservé
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import path from 'path';
+import zlib from 'zlib';
 import Database from 'better-sqlite3';
 import { ADMIN, createWorkDir, startServer } from './helpers/server.ts';
 import { createResource, loginAs } from './helpers/fixtures.ts';
@@ -90,6 +91,28 @@ it.skipIf(!isSqlite)(
         }
     }
 );
+
+// Audit de sécurité, lot 4 : un fichier piégé ne peut pas annoncer une extraction démesurée (« bombe zip »)
+it.skipIf(!isSqlite)('dump annonçant un contenu démesuré ou des tailles invalides : refusé', async () => {
+    const piege = (manifest: object) => {
+        const m = Buffer.from(JSON.stringify(manifest), 'utf8');
+        const head = Buffer.alloc(12);
+        head.write('GPDUMP01', 0, 'ascii');
+        head.writeUInt32BE(m.length, 8);
+        return zlib.gzipSync(Buffer.concat([head, m]));
+    };
+    const envoyer = async (manifest: object) => {
+        const r = await raw('POST', '/api/admin/dump/inspect', {
+            body: piege(manifest),
+            headers: { 'Content-Type': 'application/octet-stream' }
+        });
+        return { status: r.status, error: ((await r.json()) as any).error };
+    };
+    const enorme = await envoyer({ format: 1, db: { size: 50 * 1024 ** 3 }, files: [] });
+    expect(enorme).toMatchObject({ status: 400, error: expect.stringMatching(/trop volumineux/) });
+    const negatif = await envoyer({ format: 1, db: { size: 10 }, files: [{ name: 'a.pdf', size: -5 }] });
+    expect(negatif).toMatchObject({ status: 400, error: expect.stringMatching(/tailles incorrectes/) });
+});
 
 // PostgreSQL / MariaDB : sauvegarde par les outils de la base (pg_dump, mysqldump)
 it.runIf(!isSqlite)('sauvegarde intégrée indisponible hors SQLite', async () => {

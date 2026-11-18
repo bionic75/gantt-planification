@@ -394,7 +394,7 @@ Protections :
 | POST | `/api/reporting/availability` | reporting |
 | GET | `/api/reporting/diagnose/:expertId/:year/:month` | reporting |
 | GET | `/api/reporting/events-map` | auth |
-| POST | `/api/reporting/hno-astreintes` | auth |
+| POST | `/api/reporting/hno-astreintes` | reporting |
 
 ## resources
 

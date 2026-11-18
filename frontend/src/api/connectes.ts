@@ -3,7 +3,8 @@ import { api } from '@/api/client';
 
 export interface UtilisateurConnecte {
     userId: number;
-    username: string;
+    /** Identifiant de connexion : renvoyé au seul profil administrateur */
+    username?: string;
     nom: string | null;
     prenom: string | null;
     trigramme: string | null;

@@ -104,10 +104,31 @@ export async function listSettings(req: Request, res: Response) {
     res.json(Object.fromEntries(Object.entries(all).filter(([key]) => visible(key))));
 }
 
+/**
+ * Paramètres enregistrés par l'administration avec la route générique (écrans Paramétrages et workflow CRA). Les autres
+ * (jeton Asana, configurations des automatisations, accès aux onglets, thème…) ont leur propre route, avec ses
+ * contrôles : la route générique ne peut ni les remplacer ni écrire une clé interne (app_affectation_seeded…).
+ */
+const WRITABLE_SETTINGS = new Set([
+    'favicon',
+    'inactivity_enabled',
+    'inactivity_timeout',
+    'help_publication_enabled',
+    'help_publication_version',
+    'help_publication_timestamp',
+    'app_version',
+    'automation_4_config'
+]);
+/** Clés libres des tests automatisés (jamais lues par l'application) */
+const TEST_SETTING_PREFIX = 'test_';
+
 export async function saveSetting(req: Request, res: Response) {
     const { key, value } = req.body;
     if (typeof key !== 'string' || !key || value === undefined || value === null) {
         throw badRequest('Clé et valeur requises');
+    }
+    if (!WRITABLE_SETTINGS.has(key) && !key.startsWith(TEST_SETTING_PREFIX)) {
+        throw badRequest(`Paramètre « ${key} » non modifiable par cette route`);
     }
     await setSetting(key, value);
     logUserAction(req, 'Mise à jour paramètre', { key, value });

@@ -3,6 +3,7 @@
 // session démontés, magasins vidés, mire réaffichée avec un message), déconnexion avec un écran d'attente.
 import { reactive } from 'vue';
 import { ecouter, emettre } from '@/evenements';
+import { fichierConserve } from '@/ilots/analyse/stockage';
 
 export const etatSession = reactive({
     /** Session ouverte : application affichée ; sinon la mire */
@@ -27,6 +28,8 @@ const ADRESSES_CONNEXION = /\/(login|logout|check-session|version|mfa|forgot|res
  * vidée, avec le message éventuel ; haut de la page
  */
 export function terminerSession(message?: string): void {
+    // Fichier importé dans l'outil d'analyse (données de travail) : pas conservé dans le navigateur après la session
+    void fichierConserve.supprimer().catch(() => {});
     emettre('session-terminee');
     etatSession.ouverte = false;
     emettre('mire-affichee', { message });

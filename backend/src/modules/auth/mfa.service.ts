@@ -184,11 +184,21 @@ export function generateTotpCode(secret: string, counter: number) {
     return (binary % 1000000).toString().padStart(6, '0');
 }
 
-/** Accepte le code de la fenêtre de 30 s courante et des deux fenêtres adjacentes */
-export function verifyTotp(secret: string, code: string) {
+/** Dernière fenêtre de 30 s dont le code a été accepté, par compte (en mémoire) : un code ne sert qu'une fois */
+const lastTotpStep = new Map<number, number>();
+
+/**
+ * Accepte le code de la fenêtre de 30 s courante et des deux fenêtres adjacentes, à condition qu'il soit plus récent
+ * que le dernier code accepté pour ce compte : un code intercepté ou vu par-dessus l'épaule ne peut pas être rejoué
+ * dans les 90 secondes où il reste valable.
+ */
+export function verifyTotp(userId: number, secret: string, code: string) {
     const step = Math.floor(Date.now() / 1000 / 30);
     for (let i = -1; i <= 1; i++) {
-        if (generateTotpCode(secret, step + i) === code) return true;
+        if (generateTotpCode(secret, step + i) !== code) continue;
+        if (step + i <= (lastTotpStep.get(userId) ?? -1)) return false;
+        lastTotpStep.set(userId, step + i);
+        return true;
     }
     return false;
 }

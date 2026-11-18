@@ -103,10 +103,23 @@ describe('connexion avec MFA', () => {
         const { client, login } = await pendingLogin(user);
         expect(login.totpConfigured).toBe(true);
 
-        const r = await client.post('/api/mfa/verify', { userId: 1, profile: 'admin', code: totp(secret) });
+        // Code de la fenêtre suivante (acceptée) : celui de la fenêtre courante a servi à l'enregistrement
+        const r = await client.post('/api/mfa/verify', { userId: 1, profile: 'admin', code: totp(secret, 1) });
         expect(r.status).toBe(200);
         expect(r.data.user).toMatchObject({ id: user.id, activeProfile: 'user' });
         expect((await client.get('/api/check-session')).data.userId).toBe(user.id);
+    });
+
+    // Audit de sécurité, lot 4 : un code ne sert qu'une fois, même s'il reste valable 90 secondes
+    it('refuse un code TOTP déjà utilisé, ou plus ancien que le dernier accepté', async () => {
+        const user = await createUser(admin, { is_user: 1 });
+        const secret = await enrollTotp(user); // code de la fenêtre courante
+        const { client } = await pendingLogin(user);
+        expect((await client.post('/api/mfa/verify', { code: totp(secret) })).status).toBe(401);
+        expect((await client.post('/api/mfa/verify', { code: totp(secret, -1) })).status).toBe(401);
+        expect((await client.post('/api/mfa/verify', { code: totp(secret, 1) })).status).toBe(200);
+        const { client: rejeu } = await pendingLogin(user);
+        expect((await rejeu.post('/api/mfa/verify', { code: totp(secret, 1) })).status).toBe(401);
     });
 
     it('refuse de remplacer un TOTP déjà configuré', async () => {

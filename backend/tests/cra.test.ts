@@ -39,6 +39,10 @@ describe('création et consultation', () => {
         const b = await expertWithCra();
         expect((await a.client.get(`/api/cra/find-or-create?user_id=${b.user.id}&mois=1&annee=2025`)).status).toBe(403);
         expect((await a.client.get(`/api/cra/${b.craId}`)).status).toBe(403);
+        // Audit de sécurité, lot 4 : destinataires de la diffusion, mêmes droits que le CRA
+        expect((await a.client.get(`/api/cra/${b.craId}/diffusion-log`)).status).toBe(403);
+        expect((await b.client.get(`/api/cra/${b.craId}/diffusion-log`)).status).toBe(200);
+        expect((await admin.get('/api/cra/999999/diffusion-log')).status).toBe(404);
     });
 
     it('consultation par son auteur', async () => {
