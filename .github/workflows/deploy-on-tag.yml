@@ -20,19 +20,19 @@ jobs:
             # 1. Checkout source code
             - name: Checkout source code
               id: checkout-source-code
-              uses: actions/checkout@v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0 # Fetches full history for better caching/context
 
             # 2. Set up Docker Buildx
             - name: Set up Docker Buildx
               id: setup-docker-buildx
-              uses: docker/setup-buildx-action@v4
+              uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             # 3. Cache Docker layers
             - name: Cache Docker layers
               id: cache-docker-layers
-              uses: actions/cache@v6
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: /tmp/.buildx-cache
                   key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -41,7 +41,7 @@ jobs:
             # 4. Cache npm dependencies
             - name: Cache npm dependencies
               id: cache-npm-dependencies
-              uses: actions/cache@v6
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
                   path: ~/.npm
                   key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -59,7 +59,7 @@ jobs:
             # 6. Login to Container Registry
             - name: Log in to Container Registry
               id: login-container-registry
-              uses: docker/login-action@v4
+              uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
@@ -68,7 +68,7 @@ jobs:
             # 7. Build prod image (loaded locally, not pushed yet)
             - name: Build production image
               id: build-docker-image
-              uses: docker/build-push-action@v7
+              uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
               with:
                   context: .
                   file: Dockerfile
@@ -88,7 +88,7 @@ jobs:
             # v0.36.0 is the only trivy-action tag not hijacked in the March 2026 supply chain attack (CVE-2026-33634)
             - name: Scan image with Trivy
               id: scan-docker-image
-              uses: aquasecurity/trivy-action@v0.36.0
+              uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
               with:
                   image-ref: ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
                   version: v0.76.1
@@ -110,8 +110,10 @@ jobs:
                   SESSION_SECRET: ${{ secrets.PROD_SESSION_SECRET }}
                   APP_URL: ${{ secrets.PROD_APP_URL }}
                   APP_DATA_PATH: ${{ secrets.PROD_APP_DATA_PATH }}
+                  HOST_FINGERPRINT: ${{ secrets.SAMU_TOOLS_HOST_FINGERPRINT }}
               run: |
                   missing=""
+                  [ -n "$HOST_FINGERPRINT" ] || missing="$missing SAMU_TOOLS_HOST_FINGERPRINT (empreinte SSH de la VM, voir docs/deploiement.md)"
                   [ ${#SESSION_SECRET} -ge 32 ] || missing="$missing PROD_SESSION_SECRET (32 caractères minimum)"
                   [ -n "$APP_URL" ] || missing="$missing PROD_APP_URL"
                   [ -n "$APP_DATA_PATH" ] || missing="$missing PROD_APP_DATA_PATH"
@@ -123,16 +125,20 @@ jobs:
             # 11. Deploy to CSP
             - name: Deploy image to SAMU Tools VM
               id: deploy-docker-image
-              uses: appleboy/ssh-action@v1
+              uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
               with:
                   host: ${{ secrets.SAMU_TOOLS_HOST }}
                   username: ${{ secrets.SAMU_TOOLS_USERNAME }}
                   key: ${{ secrets.SAMU_TOOLS_PRIVATE_KEY }}
                   port: 22
                   passphrase: ${{ secrets.SAMU_TOOLS_PASSPHRASE }}
+                  # Clé d'hôte de la VM vérifiée : les secrets ne partent pas vers un serveur intercalé
+                  fingerprint: ${{ secrets.SAMU_TOOLS_HOST_FINGERPRINT }}
                   script: |
                       echo '${{ secrets.GITHUB_TOKEN }}' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
                       docker pull ${{ env.REGISTRY }}/${{ steps.extract-metadata.outputs.REPO_FULLNAME }}:${{ steps.extract-metadata.outputs.DOCKER_TAG }}
+                      # Jeton du registre non conservé sur la VM (~/.docker/config.json)
+                      docker logout ${{ env.REGISTRY }}
                       SAMU_TOOLS="planif-ressources"
                       cd samu/$SAMU_TOOLS
                       # .env complet, réécrit à chaque déploiement depuis les secrets GitHub (valeurs entre apostrophes :

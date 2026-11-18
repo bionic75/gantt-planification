@@ -1,6 +1,8 @@
 # Interface Vue (frontend/, docs/migration-vue.md) : construite à part, seul le résultat (dist/frontend) est copié
 # dans l'image finale, sans les outils de build (dépendances de développement)
-FROM node:22-alpine AS frontend
+# Image de base épinglée par digest (constructions reproductibles, pas de substitution de l'étiquette) ; Dependabot
+# propose chaque nouvelle image node:22-alpine (.github/dependabot.yml). Même digest pour les deux étapes.
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS frontend
 WORKDIR /build
 # Paquets npm (workspaces) : manifestes de la racine et des deux paquets, puis dépendances du seul paquet frontend
 COPY package.json package-lock.json ./
@@ -10,7 +12,7 @@ RUN npm ci --ignore-scripts --workspace frontend
 COPY frontend ./frontend
 RUN npm run build:front
 
-FROM node:22-alpine
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
 
 # Chromium + libs requises par Puppeteer ; LibreOffice (conversion PowerPoint → PDF de l'export du planning avec modèle)
 # et polices pour la mise en page des documents convertis

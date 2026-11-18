@@ -1,19 +1,38 @@
-# Mises à jour automatiques des GitHub Actions utilisées par les workflows
-# (.github/workflows/) : une PR par nouvelle version, à relire avant fusion.
+# Mises à jour automatiques : une PR par lot de nouvelles versions, à relire avant fusion. Les alertes de sécurité
+# (Dependabot security updates, réglage du dépôt) restent immédiates, indépendamment de ce calendrier.
 #
-# Concerne notamment aquasecurity/trivy-action : chaque nouvelle version de
-# l'action embarque une version plus récente de Trivy (le workflow n'en fixe
-# pas), ce qui tient le scanner de l'image à jour sans suivre "latest".
+# Actions GitHub (.github/workflows/) : épinglées par empreinte (SHA) avec la version en commentaire ; Dependabot met à
+# jour les deux. Concerne notamment aquasecurity/trivy-action : chaque nouvelle version de l'action embarque une version
+# plus récente de Trivy.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    # Une seule PR regroupant les mises à jour mineures et correctives ; les
-    # versions majeures arrivent dans des PR séparées.
+    # Une seule PR regroupant les mises à jour mineures et correctives ; les versions majeures arrivent dans des PR
+    # séparées.
     groups:
       github-actions:
         update-types: [minor, patch]
     commit-message:
       prefix: ci
+
+  # Paquets npm : workspaces backend et frontend, un seul package-lock.json à la racine (e2e/ a le sien)
+  - package-ecosystem: npm
+    directories: [/, /e2e]
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+
+  # Image de base du Dockerfile (épinglée par digest : chaque nouvelle image node:22-alpine est proposée)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: docker

@@ -8,12 +8,27 @@ on:
                 required: true
                 default: x.y.z
 
+# Le jeton GitHub du workflow n'est pas utilisé
+permissions: {}
+
 jobs:
     deploy:
         name: Deploy Docker image
         runs-on: ubuntu-latest
 
         steps:
+            # Version saisie à la main, recopiée ensuite dans le script exécuté sur la VM : X.Y.Z uniquement (une saisie
+            # comme « 1.0.0; commande » y serait exécutée). Lue par une variable, jamais insérée dans ce script-ci.
+            - name: Check version
+              id: check-version
+              env:
+                  VERSION: ${{ inputs.version }}
+              run: |
+                  if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+                    echo "::error::Version invalide : X.Y.Z attendu (ex. 3.4.0)"
+                    exit 1
+                  fi
+
             # Les secrets écrits dans le .env de la VM doivent exister (sinon l'application ne démarrerait pas)
             - name: Check production secrets
               id: check-production-secrets
@@ -21,8 +36,10 @@ jobs:
                   SESSION_SECRET: ${{ secrets.PROD_SESSION_SECRET }}
                   APP_URL: ${{ secrets.PROD_APP_URL }}
                   APP_DATA_PATH: ${{ secrets.PROD_APP_DATA_PATH }}
+                  HOST_FINGERPRINT: ${{ secrets.SAMU_TOOLS_HOST_FINGERPRINT }}
               run: |
                   missing=""
+                  [ -n "$HOST_FINGERPRINT" ] || missing="$missing SAMU_TOOLS_HOST_FINGERPRINT (empreinte SSH de la VM, voir docs/deploiement.md)"
                   [ ${#SESSION_SECRET} -ge 32 ] || missing="$missing PROD_SESSION_SECRET (32 caractères minimum)"
                   [ -n "$APP_URL" ] || missing="$missing PROD_APP_URL"
                   [ -n "$APP_DATA_PATH" ] || missing="$missing PROD_APP_DATA_PATH"
@@ -34,13 +51,15 @@ jobs:
             # Deploy docker image to CSP
             - name: Deploy image to SAMU Tools VM
               id: deploy-docker-image
-              uses: appleboy/ssh-action@v1
+              uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
               with:
                   host: ${{ secrets.SAMU_TOOLS_HOST }}
                   username: ${{ secrets.SAMU_TOOLS_USERNAME }}
                   key: ${{ secrets.SAMU_TOOLS_PRIVATE_KEY }}
                   port: 22
                   passphrase: ${{ secrets.SAMU_TOOLS_PASSPHRASE }}
+                  # Clé d'hôte de la VM vérifiée : les secrets ne partent pas vers un serveur intercalé
+                  fingerprint: ${{ secrets.SAMU_TOOLS_HOST_FINGERPRINT }}
                   script: |
                       SAMU_TOOLS="planif-ressources"
                       cd samu/$SAMU_TOOLS
