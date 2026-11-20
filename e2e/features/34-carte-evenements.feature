@@ -54,14 +54,14 @@ Fonctionnalité: Carte des événements (suivi géographique)
     Étant donné que le SAMU de test est en service depuis le "2031-09-20"
     Quand je choisis la durée de défilement "Très rapide (6 s)"
     Et je lance la lecture chronologique
-    Alors la lecture chronologique se termine au "20/09/2031" avec toutes les mises en service
+    Alors la lecture chronologique se termine à partir du "20/09/2031" avec toutes les mises en service
     Quand j'arrête la lecture chronologique
     Alors la lecture chronologique est réinitialisée
 
   Scénario: Position choisie au curseur
     Étant donné que le SAMU de test est en service depuis le "2031-09-20"
     Quand je place le curseur de la lecture chronologique à la fin
-    Alors la lecture chronologique affiche le "20/09/2031" avec toutes les mises en service
+    Alors la lecture chronologique affiche une date à partir du "20/09/2031" avec toutes les mises en service
     Quand je place le curseur de la lecture chronologique au début
     Alors la lecture chronologique affiche une date avec un compteur de mises en service
 

@@ -193,13 +193,32 @@ When('je lance la lecture chronologique', async ({ monde }) => {
     await monde.page.locator('#mapPlayBtn').click();
 });
 
+/** Jour « jj/mm/aaaa » en nombre de millisecondes (comparable) */
+const jourFr = (t: string | null) => {
+    const [j = '', m = '', a = ''] = (t ?? '').trim().split('/');
+    return Date.parse(`${a}-${m}-${j}T00:00:00Z`);
+};
+
+/**
+ * La date lue à la fin de la lecture est celle de la dernière mise en service de la base : celle du SAMU de test, ou
+ * une plus tardive créée par un autre scénario en parallèle
+ */
+async function dateLueDepuis(monde: Monde, date: string, delai: number) {
+    await expect
+        .poll(async () => jourFr(await monde.page.locator('#mapPlayDate').textContent()), { timeout: delai })
+        .toBeGreaterThanOrEqual(jourFr(date));
+}
+
 const TOUTES_MISES_EN_SERVICE = /^(\d+) \/ \1 mise\(s\) en service$/;
 
-Then('la lecture chronologique se termine au {string} avec toutes les mises en service', async ({ monde }, date) => {
-    await expect(monde.page.locator('#mapPlayDate')).toHaveText(date, { timeout: 20000 });
-    await expect(monde.page.locator('#mapPlayCount')).toHaveText(TOUTES_MISES_EN_SERVICE);
-    await expect(monde.page.locator('#mapPlayBtn')).toContainText('Lecture');
-});
+Then(
+    'la lecture chronologique se termine à partir du {string} avec toutes les mises en service',
+    async ({ monde }, date) => {
+        await dateLueDepuis(monde, date, 20000);
+        await expect(monde.page.locator('#mapPlayCount')).toHaveText(TOUTES_MISES_EN_SERVICE);
+        await expect(monde.page.locator('#mapPlayBtn')).toContainText('Lecture');
+    }
+);
 
 When("j'arrête la lecture chronologique", async ({ monde }) => {
     await monde.page.locator('#mapPlayBar').getByTitle('Arrêter et réafficher tous les événements').click();
@@ -225,10 +244,13 @@ When('je place le curseur de la lecture chronologique à la fin', async ({ monde
     await curseur(monde, 1000);
 });
 
-Then('la lecture chronologique affiche le {string} avec toutes les mises en service', async ({ monde }, date) => {
-    await expect(monde.page.locator('#mapPlayDate')).toHaveText(date);
-    await expect(monde.page.locator('#mapPlayCount')).toHaveText(TOUTES_MISES_EN_SERVICE);
-});
+Then(
+    'la lecture chronologique affiche une date à partir du {string} avec toutes les mises en service',
+    async ({ monde }, date) => {
+        await dateLueDepuis(monde, date, 5000);
+        await expect(monde.page.locator('#mapPlayCount')).toHaveText(TOUTES_MISES_EN_SERVICE);
+    }
+);
 
 Then('la lecture chronologique affiche une date avec un compteur de mises en service', async ({ monde }) => {
     await expect(monde.page.locator('#mapPlayDate')).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/);
