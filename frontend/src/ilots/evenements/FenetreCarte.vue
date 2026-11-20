@@ -1598,6 +1598,8 @@ onBeforeUnmount(() => {
     gap: 3px;
 }
 .ev-carte__etiquette-carte {
+    /* Le repère Leaflet fait 0 × 0 : sans largeur propre, l'étiquette aurait une emprise vide (invisible pour les tests) */
+    width: max-content;
     display: flex;
     flex-direction: column;
     align-items: center;
