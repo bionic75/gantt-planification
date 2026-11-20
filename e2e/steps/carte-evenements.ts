@@ -193,9 +193,11 @@ When('je lance la lecture chronologique', async ({ monde }) => {
     await monde.page.locator('#mapPlayBtn').click();
 });
 
-Then('la lecture chronologique se termine au {string} avec {string}', async ({ monde }, date, compte) => {
+const TOUTES_MISES_EN_SERVICE = /^(\d+) \/ \1 mise\(s\) en service$/;
+
+Then('la lecture chronologique se termine au {string} avec toutes les mises en service', async ({ monde }, date) => {
     await expect(monde.page.locator('#mapPlayDate')).toHaveText(date, { timeout: 20000 });
-    await expect(monde.page.locator('#mapPlayCount')).toHaveText(compte);
+    await expect(monde.page.locator('#mapPlayCount')).toHaveText(TOUTES_MISES_EN_SERVICE);
     await expect(monde.page.locator('#mapPlayBtn')).toContainText('Lecture');
 });
 
@@ -223,9 +225,92 @@ When('je place le curseur de la lecture chronologique à la fin', async ({ monde
     await curseur(monde, 1000);
 });
 
-Then('la lecture chronologique affiche le {string} avec {string}', async ({ monde }, date, compte) => {
+Then('la lecture chronologique affiche le {string} avec toutes les mises en service', async ({ monde }, date) => {
     await expect(monde.page.locator('#mapPlayDate')).toHaveText(date);
-    await expect(monde.page.locator('#mapPlayCount')).toHaveText(compte);
+    await expect(monde.page.locator('#mapPlayCount')).toHaveText(TOUTES_MISES_EN_SERVICE);
+});
+
+Then('la lecture chronologique affiche une date avec un compteur de mises en service', async ({ monde }) => {
+    await expect(monde.page.locator('#mapPlayDate')).toHaveText(/^\d{2}\/\d{2}\/\d{4}$/);
+    await expect(monde.page.locator('#mapPlayCount')).toHaveText(/^\d+ \/ \d+ mise\(s\) en service$/);
+});
+
+// ---------- Mises en service, GIF, fonds de carte, légende, France seule ----------
+
+Given('le SAMU de test est en service depuis le {string}', async ({ monde }, date) => {
+    const api = await adminApi(monde);
+    const id = monde.d.locCarte!.id;
+    const statuts = (await api.ok('GET', '/api/affectation/deployment-statuses')).statuses;
+    const service = statuts.find((s: any) => s.is_service);
+    monde.aNettoyer(`SAMU suivi ${id}`, () => api.delete(`/api/affectation/deployment-samus/${id}`));
+    await api.ok('PUT', `/api/affectation/deployment-samus/${id}`, {
+        status_id: service.id,
+        date_mise_en_service: date
+    });
+});
+
+When("je demande le GIF de l'animation", async ({ monde }) => {
+    const attente = monde.page.waitForEvent('download', { timeout: 60000 });
+    await monde.page.locator('#mapGifBtn').click();
+    monde.d.telechargement = (await attente).suggestedFilename();
+});
+
+Then('un fichier {string} est téléchargé', async ({ monde }, nom) => {
+    expect(monde.d.telechargement).toBe(nom);
+});
+
+When('je choisis le fond de carte {string}', async ({ monde }, libelle) => {
+    await monde.page.locator('#mapBaseSelect').selectOption({ label: libelle });
+});
+
+const imagesDeFond = (monde: Monde) => carte(monde).locator('img.leaflet-tile');
+
+Then('la carte affiche des images de fond de {string}', async ({ monde }, hote) => {
+    await expect(imagesDeFond(monde).first()).toHaveAttribute('src', new RegExp(hote.replace(/\./g, '\\.')));
+});
+
+Then("la carte n'affiche plus d'image de fond", async ({ monde }) => {
+    await expect(imagesDeFond(monde)).toHaveCount(0);
+});
+
+Then('la carte trace les limites des départements et des régions', async ({ monde }) => {
+    // 96 départements de métropole et 5 d'outre-mer, 13 régions
+    await expect(carte(monde).locator('.leaflet-administratif-pane path')).toHaveCount(114);
+});
+
+const statutLegende = (monde: Monde, statut: string) =>
+    monde.page.getByTestId('carte-legende').getByRole('button', { name: new RegExp(`^${statut}`) });
+
+Then('la légende de la carte présente le statut {string} affiché', async ({ monde }, statut) => {
+    await expect(statutLegende(monde, statut)).toHaveAttribute('aria-pressed', 'true');
+});
+
+Then('la légende de la carte présente le statut {string} masqué', async ({ monde }, statut) => {
+    await expect(statutLegende(monde, statut)).toHaveAttribute('aria-pressed', 'false');
+});
+
+When('je clique sur le statut {string} de la légende', async ({ monde }, statut) => {
+    await statutLegende(monde, statut).click();
+});
+
+When('je bascule la carte de France seule', async ({ monde }) => {
+    await monde.page.locator('#toggleFranceMapBtn').click();
+});
+
+Then('le bouton de la carte de France seule indique {string}', async ({ monde }, texte) => {
+    await expect(monde.page.locator('#toggleFranceMapBtn')).toContainText(texte);
+});
+
+Then('le choix du fond de carte est désactivé', async ({ monde }) => {
+    await expect(monde.page.locator('#mapBaseSelect')).toBeDisabled();
+});
+
+Then('les boutons de la barre de la carte ont tous la même hauteur', async ({ monde }) => {
+    const hauteurs = await monde.page
+        .locator('.ev-carte__actions > button')
+        .evaluateAll(boutons => boutons.map(b => Math.round(b.getBoundingClientRect().height)));
+    expect(hauteurs.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(hauteurs).size).toBe(1);
 });
 
 // ---------- Fermeture ----------

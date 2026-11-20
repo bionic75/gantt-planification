@@ -247,6 +247,8 @@ export interface DonneesScenario {
     localisationIhm?: string;
     /** carte-evenements.ts */
     locCarte?: { id: number; court: string; long: string };
+    /** Nom du dernier fichier téléchargé (carte : export GIF) */
+    telechargement?: string;
     /** admin-securite.ts */
     mfaInitiale?: any;
     /** cra.ts, cra-administration.ts, cra-ecran.ts */

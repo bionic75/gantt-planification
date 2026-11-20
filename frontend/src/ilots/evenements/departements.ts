@@ -43,17 +43,18 @@ export interface CouleurDepartement {
     samu: string[];
 }
 
-/** Couleur de chaque département (clé = code) : statut de plus petite position parmi ses déploiements */
+/** Couleur de chaque département (clé = code) : statut de plus petite position parmi ses déploiements ; les statuts masqués (légende) sont ignorés */
 export function couleursDepartements(
     deploiements: DeploiementCarte[],
     statuts: StatutDeploiement[],
-    contours: Contours
+    contours: Contours,
+    masques: ReadonlySet<string> = new Set()
 ) {
     const parId = new Map(statuts.map(s => [s.id, s]));
     const retenus = new Map<string, { statut: StatutDeploiement; samu: string[] }>();
     for (const d of deploiements) {
         const statut = d.status_id == null ? undefined : parId.get(d.status_id);
-        if (!statut || d.latitude == null || d.longitude == null) continue;
+        if (!statut || masques.has(statut.label) || d.latitude == null || d.longitude == null) continue;
         const dep = departementDe(d.latitude, d.longitude, contours);
         if (!dep) continue;
         const actuel = retenus.get(dep.code);

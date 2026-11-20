@@ -92,3 +92,12 @@ describe('couleursDepartements', () => {
         expect(m.get('A')?.samu).toEqual(['SAMU 1', 'SAMU 2']);
     });
 });
+
+describe('couleursDepartements : statuts masqués', () => {
+    it('ignore les déploiements dont le statut est masqué (la légende peut le cacher)', () => {
+        const statuts = [statut(1, 1), statut(2, 2)];
+        const liste = [dep(1, 5, 5, 1), dep(2, 5, 25, 2)];
+        const res = couleursDepartements(liste, statuts, contours, new Set(['S1']));
+        expect([...res.keys()]).toEqual(['B']);
+    });
+});

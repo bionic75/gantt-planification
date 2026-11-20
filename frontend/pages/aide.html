@@ -263,7 +263,8 @@
   <div class="note">Les <strong>impressions</strong> (reporting disponibilités, HNO / astreintes, planning) reprennent ces icônes à leur taille normale, en couleur.</div>
 
   <h3>Carte des événements : lecture chronologique</h3>
-  <p>Dans la fenêtre de cartographie des événements (onglet Événements / Cartographie), choisissez une <strong>date de début</strong> et une <strong>date de fin</strong>, une <strong>vitesse de défilement</strong> (durée totale de la lecture) puis cliquez sur <strong>Lecture</strong>. Les pastilles apparaissent progressivement sur la carte, de façon cumulative, au fil du temps. Vous pouvez mettre en <strong>pause</strong>, reprendre, ou déplacer le curseur de progression pour revenir à une date donnée. Les experts <strong>principaux</strong> et <strong>secondaires</strong> d'un SAMU sont distingués par deux icônes simplifiées (P et S).</p>
+  <p>Dans la fenêtre de cartographie (onglet Événements / Cartographie), cliquez sur <strong>Lecture</strong> pour rejouer la <strong>progression des mises en service</strong> : seuls les SAMU au statut « En service » apparaissent, département par département, à leur date de mise en service (date saisie, à défaut date de l'événement « Mise en service »). Choisissez la <strong>durée du défilement</strong>, mettez en <strong>pause</strong>, reprenez ou déplacez le curseur pour revenir à une date. Pendant la lecture, la carte ne montre que ces départements ; ■ réaffiche tout. Le bouton <strong>GIF</strong> génère l'animation (30 images, date et compteur en surimpression) et la télécharge. Les experts <strong>principaux</strong> et <strong>secondaires</strong> d'un SAMU sont distingués par deux icônes simplifiées (P et S).</p>
+  <p>Le sélecteur <strong>Fond de carte</strong> propose le <strong>plan</strong>, le <strong>satellite</strong> (orthophotographies IGN) et un fond <strong>administratif</strong> (limites des départements et des régions, sans routes). Dans la légende, cliquez sur un statut pour <strong>masquer ou réafficher</strong> ses départements. Le bouton <strong>France seule</strong> retire le fond : seuls les départements restent affichés, la Corse en place et les départements d'outre-mer rapprochés de la métropole dans des encarts. Le choix du fond, de « France seule » et les statuts masqués sont mémorisés dans votre navigateur.</p>
   <p>Sur la carte, trois boutons affichent ou masquent des <strong>calques</strong> : les <strong>événements / déplacements</strong>, les <strong>experts</strong> et les <strong>départements</strong>. Le calque des départements colore chaque département dont le SAMU a un statut de déploiement (couleur du statut) ; un curseur règle sa <strong>transparence</strong>. Si plusieurs SAMU d'un même département ont des statuts différents, c'est le statut placé le plus haut dans la liste qui s'applique. Les statuts se paramètrent dans la rubrique <strong>Paramétrage des déploiements</strong> (administrateur) de l'onglet Événements / Cartographie.</p>
 
   <h3>Modèles d'événements</h3>
@@ -773,11 +774,26 @@
   <h2>🆕 Notes de version</h2>
   <p>Historique des évolutions de la Plateforme de Planification ANS.</p>
 
+  <!-- v3.6.0 -->
+  <div class="card card-green" style="margin-bottom:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="font-size:16px;">v3.6.0</strong>
+      <span class="badge badge-current">Actuelle</span>
+      <span style="color:#888; font-size:13px;">Novembre 2026</span>
+    </div>
+    <ul>
+      <li>🗺️ <strong>Fonds de carte</strong> : plan, satellite (orthophotographies IGN) ou administratif (limites des départements et des régions, sans routes), au choix dans la cartographie.</li>
+      <li>🚦 <strong>Légende cliquable</strong> : un clic sur un statut masque ou réaffiche ses départements sur la carte.</li>
+      <li>▶️ <strong>Animation des mises en service</strong> : la lecture montre l'apparition des SAMU « En service » à leur date de mise en service, au lieu des événements.</li>
+      <li>🇫🇷 <strong>France seule</strong> : nouveau bouton qui ne garde que la carte de France, outre-mer rapprochée ; boutons de la barre de la carte à la même hauteur.</li>
+      <li>🎞️ <strong>Export GIF</strong> : bouton pour générer et télécharger l'animation au format GIF.</li>
+    </ul>
+  </div>
+
   <!-- v3.3.0 -->
   <div class="card card-green" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <strong style="font-size:16px;">v3.3.0</strong>
-      <span class="badge badge-current">Actuelle</span>
       <span style="color:#888; font-size:13px;">Novembre 2026</span>
     </div>
     <ul>

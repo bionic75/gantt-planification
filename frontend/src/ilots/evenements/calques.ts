@@ -6,7 +6,16 @@ export interface EtatCalques {
     experts: boolean;
     /** Part d'opacité retirée aux départements, de 0 à 100 */
     transparence: number;
+    /** Fond de carte */
+    fond: Fond;
+    /** Libellés des statuts masqués par un clic sur la légende */
+    statutsMasques: string[];
+    /** Carte de France seule : sans fond, outre-mer rapprochée de la métropole */
+    franceSeule: boolean;
 }
+
+export const FONDS = ['plan', 'satellite', 'administratif'] as const;
+export type Fond = (typeof FONDS)[number];
 
 /** Stockage du navigateur, ou un stockage vide quand l'accès est refusé (navigation privée, site bloqué) */
 export function stockageNavigateur(): Pick<Storage, 'getItem' | 'setItem'> {
@@ -23,7 +32,10 @@ export const etatInitial = (): EtatCalques => ({
     departements: true,
     evenements: true,
     experts: true,
-    transparence: 60
+    transparence: 60,
+    fond: 'plan',
+    statutsMasques: [],
+    franceSeule: false
 });
 
 /** État mémorisé ; état initial si rien n'est mémorisé, si la valeur est illisible ou si le stockage est inaccessible */
@@ -34,10 +46,12 @@ export function lireEtat(stockage: Pick<Storage, 'getItem'>): EtatCalques {
             Record<keyof EtatCalques, unknown>
         > | null;
         if (!v || typeof v !== 'object') return etat;
-        for (const k of ['departements', 'evenements', 'experts'] as const)
+        for (const k of ['departements', 'evenements', 'experts', 'franceSeule'] as const)
             if (typeof v[k] === 'boolean') etat[k] = v[k];
         if (typeof v.transparence === 'number' && Number.isFinite(v.transparence))
             etat.transparence = Math.min(100, Math.max(0, v.transparence));
+        if (FONDS.includes(v.fond as Fond)) etat.fond = v.fond as Fond;
+        if (Array.isArray(v.statutsMasques)) etat.statutsMasques = v.statutsMasques.filter(x => typeof x === 'string');
     } catch {
         return etatInitial();
     }

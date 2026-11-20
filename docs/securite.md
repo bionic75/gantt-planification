@@ -27,7 +27,7 @@ Code : `securityHeaders()` dans `backend/src/app.ts` (helmet).
   ni attribut `onclick=`… : `script-src-attr 'none'`, depuis le lot 6.5 de la [migration](migration-vue.md)),
   feuilles de style de l'application seulement (`style-src 'self'` : ni attribut `style=` ni bloc `<style>` dans le
   HTML, depuis le lot 6.6 ; les styles posés en JavaScript restent admis, voir `frontend/src/outils/styles-en-ligne.ts`),
-  images `data:` / `blob:` et tuiles OpenStreetMap, appels réseau vers l'application et Nominatim, aucun objet
+  images `data:` / `blob:`, tuiles OpenStreetMap (plan) et IGN `data.geopf.fr` (satellite), appels réseau vers l'application et Nominatim, aucun objet
   (`object-src 'none'`), affichage dans un cadre limité à l'application (`frame-ancestors 'self'`). Exceptions :
   l'aide en ligne (`/aide.html`, contenu statique, personnalisable) admet les styles en ligne ; le développement
   (serveur Vite) aussi, pour ses `<style>` injectés. Une aide en ligne personnalisée ne peut pas contenir de script :

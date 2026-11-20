@@ -151,7 +151,10 @@ Contours des départements de la carte des événements : `frontend/public/depar
 `/vue/departements.geojson`), tracés IGN Admin Express (édition 2018, licence ouverte) issus de
 `gregoiredavid/france-geojson` (`departements-version-simplifiee.geojson`), métropole seule (96 départements),
 coordonnées arrondies à 3 décimales. Le département d'un déploiement est calculé dans le navigateur à partir des
-coordonnées de sa localisation (`frontend/src/ilots/evenements/departements.ts`) : aucun appel externe.
+coordonnées de sa localisation (`frontend/src/ilots/evenements/departements.ts`) : aucun appel externe. Fond
+« France seule » : `frontend/public/departements-outre-mer.geojson` (5 DROM, tracés simplifiés à 0,004°, mêmes source et licence), placés dans des encarts par `outre-mer.ts` (les couleurs se calculent sur les vraies coordonnées). Fond « Administratif » : `frontend/public/regions.geojson` (13 régions métropolitaines, même source et mêmes
+tracés, 3 décimales). Export GIF de l'animation des mises en service : encodeur `gifenc` (MIT, embarqué dans
+le bundle, `frontend/src/ilots/evenements/gif.ts`), images dessinées sur un canvas dans le navigateur.
 
 Version et cache : le commentaire `<!-- vX.Y.Z -->` en tête de `index.html` est la version affichée, mise à jour par
 `npm run app:version -- X.Y.Z` ([déploiement](deploiement.md#publier-une-version)). Les fichiers de l'interface Vue

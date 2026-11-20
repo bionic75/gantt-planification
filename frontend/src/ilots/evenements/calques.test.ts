@@ -5,7 +5,7 @@ const stockage = (valeur: string | null) => ({ getItem: () => valeur });
 
 describe('calques de la carte', () => {
     it('tous les calques sont affichés au départ, transparence à 60 %', () => {
-        expect(etatInitial()).toEqual({ departements: true, evenements: true, experts: true, transparence: 60 });
+        expect(etatInitial()).toMatchObject({ departements: true, evenements: true, experts: true, transparence: 60 });
     });
 
     it('revient à l’état initial si rien n’est mémorisé, si le JSON est invalide ou si la lecture échoue', () => {
@@ -27,7 +27,7 @@ describe('calques de la carte', () => {
 
     it('relit ce qu’il a écrit, et n’échoue pas si l’écriture est impossible', () => {
         let v = '';
-        const etat = { departements: false, evenements: true, experts: false, transparence: 25 };
+        const etat = { ...etatInitial(), departements: false, experts: false, transparence: 25 };
         ecrireEtat({ setItem: (_k: string, x: string) => (v = x) }, etat);
         expect(lireEtat(stockage(v))).toEqual(etat);
         expect(() =>
@@ -61,5 +61,26 @@ describe('calques de la carte', () => {
         } finally {
             espion.mockRestore();
         }
+    });
+});
+
+describe('fond de carte et statuts masqués', () => {
+    it('plan et aucun statut masqué au départ', () => {
+        expect(etatInitial()).toMatchObject({ fond: 'plan', statutsMasques: [] });
+    });
+    it('carte de France seule : désactivée au départ, relue si mémorisée', () => {
+        expect(etatInitial().franceSeule).toBe(false);
+        expect(lireEtat(stockage(JSON.stringify({ franceSeule: true }))).franceSeule).toBe(true);
+        expect(lireEtat(stockage(JSON.stringify({ franceSeule: 'oui' }))).franceSeule).toBe(false);
+    });
+    it('relit le fond et les statuts masqués, ignore les valeurs invalides', () => {
+        expect(lireEtat(stockage(JSON.stringify({ fond: 'satellite', statutsMasques: ['En projet'] })))).toMatchObject({
+            fond: 'satellite',
+            statutsMasques: ['En projet']
+        });
+        expect(lireEtat(stockage(JSON.stringify({ fond: 'hologramme', statutsMasques: 'tous' })))).toMatchObject({
+            fond: 'plan',
+            statutsMasques: []
+        });
     });
 });

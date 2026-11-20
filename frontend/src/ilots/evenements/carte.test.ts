@@ -2,14 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { EvenementCarte, ExpertCarte, LocalisationCarte } from '@/api/carte';
 import type { Compte } from '@/api/evenements';
 import {
-    commencesA,
-    compteParLieu,
     dateALaPosition,
     filtrer,
     grouperParLieu,
     localisationsGeolocalisees,
     placerExperts,
-    plageLecture,
     propositions,
     typesProposes
 } from './carte';
@@ -147,23 +144,10 @@ describe('carte des événements : lieux et experts', () => {
 });
 
 describe('carte des événements : lecture chronologique', () => {
-    it('période : dates choisies, à défaut celles des événements ; rien à lire sans date ni événement', () => {
-        expect(plageLecture(EVTS, '2031-09-01', '2031-09-30')).toEqual({
-            debut: '2031-09-01',
-            fin: '2031-09-30',
-            jours: 29
-        });
-        expect(plageLecture(EVTS, '', '')).toEqual({ debut: '2031-09-02', fin: '2031-09-25', jours: 23 });
-        expect(plageLecture([], '', '')).toBeNull();
-        expect(plageLecture(EVTS, '2031-10-01', '2031-09-01')).toBeNull();
-    });
-
-    it('date atteinte et événements déjà commencés', () => {
+    it('date atteinte à une position de la période', () => {
         const p = { debut: '2031-09-01', fin: '2031-09-30', jours: 29 };
         expect(dateALaPosition(p, 0)).toBe('2031-09-01');
         expect(dateALaPosition(p, 1)).toBe('2031-09-30');
         expect(dateALaPosition(p, 0.5)).toBe('2031-09-15');
-        expect(commencesA(EVTS, '2031-09-15').map(e => e.id)).toEqual([1, 2]);
-        expect(compteParLieu(commencesA(EVTS, '2031-09-30'))).toEqual({ 10: 2, 11: 1 });
     });
 });
