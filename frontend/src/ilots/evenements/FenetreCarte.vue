@@ -25,10 +25,18 @@ import {
 } from './carte';
 import { dateFr } from './calculs';
 import { ecrireEtat, FONDS, lireEtat, opaciteDepartements, stockageNavigateur, type Fond } from './calques';
-import { couleursDepartements, type Contours } from './departements';
+import { centreDe, couleursDepartements, type Contours } from './departements';
 import { ENCARTS, rapprocherOutreMer } from './outre-mer';
 import { genererGif, telecharger, tracerContours, type Projection } from './gif';
-import { datesDesImages, misesEnServiceA, nbMisesEnService, plageMisesEnService } from './mises-en-service';
+import {
+    dateALaPositionCompressee,
+    datesDeMisesEnService,
+    datesDesImages,
+    datesDesImagesCompressees,
+    misesEnServiceA,
+    nbMisesEnService,
+    plageMisesEnService
+} from './mises-en-service';
 import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
 
@@ -54,6 +62,9 @@ const transparence = ref(etatInitialCalques.transparence);
 const fond = ref<Fond>(etatInitialCalques.fond);
 /** Carte de France seule : sans fond, outre-mer rapprochée de la métropole */
 const franceSeule = ref(etatInitialCalques.franceSeule);
+/** Noms écrits sur la carte, sur chaque département coloré */
+const nomsSamu = ref(etatInitialCalques.nomsSamu);
+const nomsDepartements = ref(etatInitialCalques.nomsDepartements);
 /** Statuts masqués par un clic sur la légende (libellés) */
 const statutsMasques = ref(new Set(etatInitialCalques.statutsMasques));
 
@@ -66,7 +77,9 @@ const memoriserCalques = () =>
         transparence: transparence.value,
         fond: fond.value,
         statutsMasques: [...statutsMasques.value],
-        franceSeule: franceSeule.value
+        franceSeule: franceSeule.value,
+        nomsSamu: nomsSamu.value,
+        nomsDepartements: nomsDepartements.value
     });
 
 const localisations = ref<LocalisationCarte[]>([]);
@@ -93,6 +106,8 @@ const conteneur = ref<HTMLElement | null>(null);
 let carte: L.Map | null = null;
 let calque: L.LayerGroup | null = null;
 let calqueDepartements: L.GeoJSON | null = null;
+/** Noms des SAMU et des départements écrits sur la carte */
+let etiquettes: L.LayerGroup | null = null;
 /** Rendu SVG des départements : porte les définitions des motifs (<defs>) */
 let renduDepartements: L.SVG | null = null;
 /** Statuts affichés sur la carte (légende) : couleur, motif, libellé et nombre de départements */
@@ -156,7 +171,15 @@ async function appliquerFond() {
             interactive: false
         });
         calqueAdministratif = L.layerGroup([
-            L.geoJSON(contoursAffiches(departements) as never, { style: trait('#9fb3c1', 0.8) }),
+            L.geoJSON(contoursAffiches(departements) as never, {
+                style: () => ({ ...trait('#9fb3c1', 0.8)(), fill: true, fillOpacity: 0, interactive: true }),
+                onEachFeature: (f, couche) => {
+                    // Nom du département au survol, même sans statut (les départements colorés ont leur propre bulle)
+                    const texte = document.createElement('span');
+                    texte.textContent = (f.properties as { nom: string }).nom;
+                    couche.bindTooltip(texte, { sticky: true });
+                }
+            }),
             L.geoJSON(regions as never, { style: trait('#4f6d80', 2) }),
             ...(franceSeule.value ? encartsOutreMer(trait) : [])
         ]).addTo(cible);
@@ -252,6 +275,8 @@ const contoursRegions = () => chargerContours('/vue/regions.geojson');
 function retirerDepartements() {
     calqueDepartements?.remove();
     calqueDepartements = null;
+    etiquettes?.remove();
+    etiquettes = null;
     legende.value = [];
 }
 
@@ -349,6 +374,45 @@ function peindreDepartements() {
         }
     ).addTo(cible);
     calqueDepartements.bringToBack();
+    dessinerEtiquettes(cible, contoursAffiches(contours), couleurs);
+}
+
+/** Lignes d'étiquette d'un département coloré : nom du département et/ou noms de ses SAMU */
+const lignesEtiquette = (nom: string, samu: string[]) => [
+    ...(nomsDepartements.value ? [nom] : []),
+    ...(nomsSamu.value ? samu : [])
+];
+
+/** Noms sur la carte (légende : « Noms des SAMU », « Noms des départements ») */
+function dessinerEtiquettes(cible: L.Map, contours: Contours, couleurs: Map<string, { samu: string[] }>) {
+    etiquettes?.remove();
+    etiquettes = null;
+    if (!nomsSamu.value && !nomsDepartements.value) return;
+    const groupe = L.layerGroup();
+    for (const f of contours.features) {
+        const c = couleurs.get(f.properties.code);
+        const lignes = c ? lignesEtiquette(f.properties.nom, c.samu) : [];
+        if (!lignes.length) continue;
+        const [lng, lat] = centreDe(f);
+        const el = document.createElement('div');
+        el.className = 'ev-carte__etiquette-carte';
+        for (const t of lignes) {
+            const ligne = document.createElement('span');
+            ligne.textContent = t;
+            el.appendChild(ligne);
+        }
+        L.marker([lat, lng], {
+            icon: L.divIcon({ className: '', html: el.outerHTML, iconSize: [0, 0] }),
+            interactive: false,
+            keyboard: false
+        }).addTo(groupe);
+    }
+    etiquettes = groupe.addTo(cible);
+}
+
+function changerNoms() {
+    memoriserCalques();
+    peindreDepartements();
 }
 
 async function dessinerDepartements() {
@@ -572,6 +636,10 @@ const lecture = ref({
     total: 0
 });
 let plage: PlageLecture | null = null;
+/** Dates distinctes de mise en service de la période (lecture sans les périodes creuses) */
+let datesMes: string[] = [];
+/** Saute les périodes sans mise en service : chaque date de mise en service occupe la même part de la lecture */
+const compresser = ref(false);
 let minuterie: ReturnType<typeof setInterval> | null = null;
 let depart = 0;
 let base = 0;
@@ -602,7 +670,7 @@ function montrer(position: number) {
     if (!plage || !donneesDeploiements) return;
     const p = Math.max(0, Math.min(1, position));
     lecture.value.position = p;
-    const date = dateALaPosition(plage, p);
+    const date = compresser.value ? dateALaPositionCompressee(datesMes, p) : dateALaPosition(plage, p);
     if (date === lecture.value.date) return;
     lecture.value.date = date;
     lecture.value.visibles = misesEnServiceA(
@@ -660,6 +728,7 @@ async function preparerLecture() {
         return false;
     }
     plage = p;
+    datesMes = datesDeMisesEnService(donnees.deployments, donnees.statuses, p);
     lecture.value.total = nbMisesEnService(donnees.deployments, donnees.statuses, p);
     return true;
 }
@@ -697,6 +766,12 @@ async function lireOuPause() {
     image();
 }
 
+function compressionChangee() {
+    if (!lecture.value.active) return;
+    lecture.value.date = null;
+    montrer(lecture.value.position);
+}
+
 function vitesseChangee() {
     if (!lecture.value.active) return;
     const enCours = lecture.value.enCours;
@@ -727,6 +802,8 @@ function arreter() {
 // ---------- Export GIF ----------
 
 const exportGif = ref({ enCours: false, texte: '' });
+/** Titre inscrit en haut du GIF (facultatif) */
+const titreGif = ref('');
 const IMAGES_GIF = 30;
 const LARGEUR_GIF = 800;
 
@@ -789,23 +866,75 @@ function fondDuGif(
     }
 }
 
-/** Bandeau de date et compteur en haut à gauche de l'image */
-function bandeauGif(ctx: CanvasRenderingContext2D, hauteur: number, date: string, nb: number, total: number) {
+/** Noms des départements et des SAMU écrits sur l'image (halo blanc pour rester lisibles sur le fond) */
+function etiquettesGif(
+    ctx: CanvasRenderingContext2D,
+    hauteur: number,
+    contours: Contours,
+    projeter: Projection,
+    couleurs: Map<string, { samu: string[] }>
+) {
+    if (!nomsSamu.value && !nomsDepartements.value) return;
+    const taille = Math.max(10, Math.round(hauteur * 0.022));
+    ctx.save();
+    ctx.font = `bold ${taille}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    for (const f of contours.features) {
+        const c = couleurs.get(f.properties.code);
+        const lignes = c ? lignesEtiquette(f.properties.nom, c.samu) : [];
+        const [x, y] = projeter(...centreDe(f));
+        lignes.forEach((t, i) => {
+            const yl = y + (i - (lignes.length - 1) / 2) * taille * 1.15;
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+            ctx.strokeText(t, x, yl);
+            ctx.fillStyle = '#1a237e';
+            ctx.fillText(t, x, yl);
+        });
+    }
+    ctx.restore();
+}
+
+/** Titre (facultatif) en haut de l'image, date et compteur en haut à gauche */
+function bandeauGif(
+    ctx: CanvasRenderingContext2D,
+    largeur: number,
+    hauteur: number,
+    date: string,
+    nb: number,
+    total: number,
+    titre: string
+) {
     const taille = Math.round(hauteur * 0.05);
     const marge = Math.round(taille * 0.5);
     ctx.save();
+    ctx.textBaseline = 'top';
+    let haut = marge;
+    if (titre) {
+        const tailleTitre = Math.round(taille * 1.1);
+        ctx.font = `bold ${tailleTitre}px sans-serif`;
+        const bandeau = tailleTitre + marge * 1.6;
+        ctx.fillStyle = 'rgba(26,35,126,0.92)';
+        ctx.fillRect(0, 0, largeur, bandeau);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(titre, largeur / 2, marge * 0.8, largeur - marge * 2);
+        ctx.textAlign = 'left';
+        haut = bandeau + marge;
+    }
     ctx.font = `bold ${taille}px sans-serif`;
     const texte1 = dateFr(date);
     const texte2 = `${nb} / ${total} mise(s) en service`;
     const largeurBandeau = Math.max(ctx.measureText(texte1).width, ctx.measureText(texte2).width * 0.6) + marge * 2;
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    ctx.fillRect(marge, marge, largeurBandeau, taille * 2.1 + marge);
+    ctx.fillRect(marge, haut, largeurBandeau, taille * 2.1 + marge);
     ctx.fillStyle = '#1a237e';
-    ctx.textBaseline = 'top';
-    ctx.fillText(texte1, marge * 2, marge * 1.5);
+    ctx.fillText(texte1, marge * 2, haut + marge * 0.5);
     ctx.font = `${Math.round(taille * 0.6)}px sans-serif`;
     ctx.fillStyle = '#37474f';
-    ctx.fillText(texte2, marge * 2, marge * 1.5 + taille * 1.2);
+    ctx.fillText(texte2, marge * 2, haut + marge * 0.5 + taille * 1.2);
     ctx.restore();
 }
 
@@ -831,7 +960,9 @@ async function exporterGif() {
         };
         const contoursDuGif = contoursAffiches(contours);
         const base = fondDuGif(cible, LARGEUR_GIF, hauteur, echelle, projeter, contours, regions);
-        const dates = datesDesImages(periode, IMAGES_GIF);
+        const dates = compresser.value
+            ? datesDesImagesCompressees(datesMes, IMAGES_GIF)
+            : datesDesImages(periode, IMAGES_GIF);
         const opacite = opaciteDepartements(transparence.value);
         const blob = await genererGif({
             largeur: LARGEUR_GIF,
@@ -843,12 +974,8 @@ async function exporterGif() {
                 const date = dates[i] ?? periode.fin;
                 const affiches = misesEnServiceA(donnees.deployments, donnees.statuses, periode, date);
                 ctx.drawImage(base, 0, 0);
-                for (const [code, c] of couleursDepartements(
-                    affiches,
-                    donnees.statuses,
-                    contours,
-                    statutsMasques.value
-                ))
+                const couleursDuJour = couleursDepartements(affiches, donnees.statuses, contours, statutsMasques.value);
+                for (const [code, c] of couleursDuJour)
                     tracerContours(
                         ctx,
                         contoursDuGif,
@@ -856,7 +983,16 @@ async function exporterGif() {
                         { trait: c.couleur, epaisseur: 1, remplissage: c.couleur, opacite },
                         new Set([code])
                     );
-                bandeauGif(ctx, hauteur, date, affiches.length, lecture.value.total);
+                etiquettesGif(ctx, hauteur, contoursDuGif, projeter, couleursDuJour);
+                bandeauGif(
+                    ctx,
+                    LARGEUR_GIF,
+                    hauteur,
+                    date,
+                    affiches.length,
+                    lecture.value.total,
+                    titreGif.value.trim()
+                );
             },
             progression: (i, total) => (exportGif.value.texte = `GIF : image ${i} / ${total}`)
         });
@@ -1032,6 +1168,14 @@ onBeforeUnmount(() => {
                         <span class="ev-carte__puce" :style="{ background: fondMotif(l.couleur, l.motif) }"></span>
                         {{ l.statut }} ({{ l.departements }})
                     </button>
+                    <label class="ev-carte__noms">
+                        <input v-model="nomsSamu" type="checkbox" @change="changerNoms" />
+                        Noms des SAMU
+                    </label>
+                    <label class="ev-carte__noms">
+                        <input v-model="nomsDepartements" type="checkbox" @change="changerNoms" />
+                        Noms des départements
+                    </label>
                 </span>
                 <label class="ev-carte__transparence">
                     Fond de carte
@@ -1093,6 +1237,12 @@ onBeforeUnmount(() => {
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
             </button>
+            <label
+                class="ev-carte__vitesse ev-carte__compression"
+                title="Saute les périodes sans mise en service : chaque mise en service occupe la même part du défilement"
+                ><input v-model="compresser" type="checkbox" @change="compressionChangee" /> Sans les périodes
+                creuses</label
+            >
             <label class="ev-carte__vitesse"
                 >Durée du défilement
                 <select id="mapPlaySpeed" v-model.number="duree" @change="vitesseChangee">
@@ -1111,6 +1261,15 @@ onBeforeUnmount(() => {
             />
             <span id="mapPlayDate" class="ev-carte__date">{{ dateLecture }}</span>
             <span id="mapPlayCount" class="ev-carte__compte">{{ compteLecture }}</span>
+            <input
+                id="mapGifTitle"
+                v-model="titreGif"
+                type="text"
+                maxlength="80"
+                class="ev-carte__titre-gif"
+                placeholder="Titre du GIF (facultatif)"
+                aria-label="Titre du GIF"
+            />
             <button
                 id="mapGifBtn"
                 type="button"
@@ -1362,6 +1521,42 @@ onBeforeUnmount(() => {
 .ev-carte__legende-item--masque {
     opacity: 0.5;
     text-decoration: line-through;
+}
+.ev-carte__noms {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+}
+.ev-carte__noms input,
+.ev-carte__compression input {
+    width: auto;
+    margin: 0;
+}
+.ev-carte__titre-gif {
+    width: 220px;
+    padding: 6px 8px;
+    border: 1px solid #9fb3c1;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.ev-carte__etiquette-carte {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    pointer-events: none;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.15;
+    color: #1a237e;
+    text-shadow:
+        0 0 3px #fff,
+        0 0 3px #fff,
+        0 0 3px #fff;
 }
 .ev-carte__fond {
     width: auto;

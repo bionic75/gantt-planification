@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { DeploiementCarte, StatutDeploiement } from '@/api/deploiements';
-import { datesDesImages, misesEnServiceA, plageMisesEnService } from './mises-en-service';
+import {
+    dateALaPositionCompressee,
+    datesDeMisesEnService,
+    datesDesImagesCompressees,
+    datesDesImages,
+    misesEnServiceA,
+    plageMisesEnService
+} from './mises-en-service';
 
 const statut = (id: number, service: boolean): StatutDeploiement => ({
     id,
@@ -69,5 +76,26 @@ describe('datesDesImages', () => {
             '2031-09-02',
             '2031-09-03'
         ]);
+    });
+});
+
+describe('animation sans les périodes creuses', () => {
+    const plage = { debut: '2031-09-01', fin: '2031-09-30', jours: 29 };
+    it('liste les dates distinctes de mise en service dans la période, triées', () => {
+        const l = [...liste, samu(6, 2, '2031-09-10')];
+        expect(datesDeMisesEnService(l, statuts, plage)).toEqual(['2031-09-10', '2031-09-20']);
+    });
+    it('chaque mise en service occupe la même part de la lecture', () => {
+        const dates = ['2031-09-10', '2031-09-20', '2031-09-21'];
+        expect(dateALaPositionCompressee(dates, 0)).toBe('2031-09-10');
+        expect(dateALaPositionCompressee(dates, 0.4)).toBe('2031-09-20');
+        expect(dateALaPositionCompressee(dates, 0.7)).toBe('2031-09-21');
+        expect(dateALaPositionCompressee(dates, 1)).toBe('2031-09-21');
+        expect(dateALaPositionCompressee([], 0.5)).toBe('');
+    });
+    it('GIF : toutes les dates si elles sont peu nombreuses, sinon un échantillon qui garde la première et la dernière', () => {
+        expect(datesDesImagesCompressees(['a', 'b'], 5)).toEqual(['a', 'b']);
+        const dates = Array.from({ length: 10 }, (_, i) => `d${i}`);
+        expect(datesDesImagesCompressees(dates, 4)).toEqual(['d0', 'd3', 'd6', 'd9']);
     });
 });

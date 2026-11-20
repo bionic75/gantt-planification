@@ -88,6 +88,27 @@ Fonctionnalité: Carte des événements (suivi géographique)
     Quand je clique sur le statut "En service" de la légende
     Alors la légende de la carte présente le statut "En service" affiché
 
+  Scénario: Lecture sans les périodes creuses
+    Étant donné que le SAMU de test est en service depuis le "2031-09-20"
+    Quand je coche « Sans les périodes creuses » sur la carte
+    Et je choisis la durée de défilement "Très rapide (6 s)"
+    Et je lance la lecture chronologique
+    Alors la lecture chronologique se termine à partir du "20/09/2031" avec toutes les mises en service
+
+  Scénario: Titre du GIF
+    Étant donné que le SAMU de test est en service depuis le "2031-09-20"
+    Quand je saisis le titre "Déploiement SAMU-SAS" pour le GIF
+    Et je demande le GIF de l'animation
+    Alors un fichier "cartographie-mises-en-service.gif" est téléchargé
+
+  Scénario: Légende : noms des départements et des SAMU sur la carte
+    Étant donné que le SAMU de test est en service depuis le "2031-09-20"
+    Quand j'affiche sur la carte les événements de la localisation de test en septembre 2031
+    Et je coche « Noms des départements » dans la légende
+    Alors la carte écrit le nom du département "Paris"
+    Quand je coche « Noms des SAMU » dans la légende
+    Alors la carte écrit le nom du SAMU de test
+
   Scénario: Carte de France seule
     Quand je bascule la carte de France seule
     Alors le bouton de la carte de France seule indique "France seule : ON"

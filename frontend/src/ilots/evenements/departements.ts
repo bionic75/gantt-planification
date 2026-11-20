@@ -36,6 +36,16 @@ export function departementDe(lat: number, lng: number, contours: Contours) {
     return null;
 }
 
+/** Centre (longitude, latitude) de l'emprise d'un département : emplacement de son étiquette */
+export function centreDe(f: Contours['features'][number]): [number, number] {
+    const g = f.geometry;
+    const polygones = g.type === 'Polygon' ? [g.coordinates as Anneau[]] : (g.coordinates as Anneau[][]);
+    const pts = polygones.flat(2);
+    const xs = pts.map(p => p[0] ?? 0);
+    const ys = pts.map(p => p[1] ?? 0);
+    return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+}
+
 export interface CouleurDepartement {
     couleur: string;
     motif: string;

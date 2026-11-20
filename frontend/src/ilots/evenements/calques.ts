@@ -12,6 +12,9 @@ export interface EtatCalques {
     statutsMasques: string[];
     /** Carte de France seule : sans fond, outre-mer rapprochée de la métropole */
     franceSeule: boolean;
+    /** Noms des SAMU et des départements écrits sur la carte */
+    nomsSamu: boolean;
+    nomsDepartements: boolean;
 }
 
 export const FONDS = ['plan', 'satellite', 'administratif'] as const;
@@ -35,7 +38,9 @@ export const etatInitial = (): EtatCalques => ({
     transparence: 60,
     fond: 'plan',
     statutsMasques: [],
-    franceSeule: false
+    franceSeule: false,
+    nomsSamu: false,
+    nomsDepartements: false
 });
 
 /** État mémorisé ; état initial si rien n'est mémorisé, si la valeur est illisible ou si le stockage est inaccessible */
@@ -46,7 +51,14 @@ export function lireEtat(stockage: Pick<Storage, 'getItem'>): EtatCalques {
             Record<keyof EtatCalques, unknown>
         > | null;
         if (!v || typeof v !== 'object') return etat;
-        for (const k of ['departements', 'evenements', 'experts', 'franceSeule'] as const)
+        for (const k of [
+            'departements',
+            'evenements',
+            'experts',
+            'franceSeule',
+            'nomsSamu',
+            'nomsDepartements'
+        ] as const)
             if (typeof v[k] === 'boolean') etat[k] = v[k];
         if (typeof v.transparence === 'number' && Number.isFinite(v.transparence))
             etat.transparence = Math.min(100, Math.max(0, v.transparence));

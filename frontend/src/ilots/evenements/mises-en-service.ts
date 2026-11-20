@@ -50,3 +50,25 @@ export function datesDesImages(plage: PlageLecture, nb: number) {
     const premier = jour(plage.debut);
     return Array.from({ length: n }, (_, i) => isoDuJour(premier + Math.round((i * plage.jours) / (n - 1))));
 }
+
+/** Dates distinctes de mise en service dans la période, triées (animation sans les périodes creuses) */
+export function datesDeMisesEnService(
+    deploiements: DeploiementCarte[],
+    statuts: StatutDeploiement[],
+    plage: PlageLecture
+) {
+    const dates = datees(deploiements, statuts)
+        .map(x => x.date)
+        .filter(d => d >= plage.debut && d <= plage.fin);
+    return [...new Set(dates)].sort();
+}
+
+/** Date lue à la position (0 à 1) quand chaque mise en service occupe la même part de la lecture ; '' sans date */
+export const dateALaPositionCompressee = (dates: string[], position: number) =>
+    dates[Math.min(dates.length - 1, Math.floor(Math.max(0, Math.min(1, position)) * dates.length))] ?? '';
+
+/** Images d'un GIF sans les périodes creuses : au plus `nb` dates de mise en service réparties sur toutes les dates */
+export function datesDesImagesCompressees(dates: string[], nb: number) {
+    if (dates.length <= nb) return dates;
+    return Array.from({ length: nb }, (_, i) => dates[Math.round((i * (dates.length - 1)) / (nb - 1))] ?? '');
+}

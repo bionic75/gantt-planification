@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { DeploiementCarte, StatutDeploiement } from '@/api/deploiements';
-import { couleursDepartements, departementDe, type Contours } from './departements';
+import { centreDe, couleursDepartements, departementDe, type Contours } from './departements';
 
 const carre = (x: number, y: number, t = 10) => [
     [
@@ -99,5 +99,12 @@ describe('couleursDepartements : statuts masqués', () => {
         const liste = [dep(1, 5, 5, 1), dep(2, 5, 25, 2)];
         const res = couleursDepartements(liste, statuts, contours, new Set(['S1']));
         expect([...res.keys()]).toEqual(['B']);
+    });
+});
+
+describe('centreDe', () => {
+    it('centre de l’emprise, polygone ou multipolygone', () => {
+        expect(centreDe(contours.features[0]!)).toEqual([5, 5]);
+        expect(centreDe(contours.features[1]!)).toEqual([35, 5]);
     });
 });

@@ -335,6 +335,35 @@ Then('les boutons de la barre de la carte ont tous la même hauteur', async ({ m
     expect(new Set(hauteurs).size).toBe(1);
 });
 
+When('je coche « Sans les périodes creuses » sur la carte', async ({ monde }) => {
+    await monde.page.getByLabel('Sans les périodes creuses').check();
+});
+
+When('je saisis le titre {string} pour le GIF', async ({ monde }, titre) => {
+    await monde.page.locator('#mapGifTitle').fill(titre);
+});
+
+When('je coche « Noms des départements » dans la légende', async ({ monde }) => {
+    await monde.page.getByTestId('carte-legende').getByLabel('Noms des départements').check();
+});
+
+When('je coche « Noms des SAMU » dans la légende', async ({ monde }) => {
+    await monde.page.getByTestId('carte-legende').getByLabel('Noms des SAMU').check();
+});
+
+Then('la carte écrit le nom du département {string}', async ({ monde }, nom) => {
+    await expect(carte(monde).locator('.ev-carte__etiquette-carte').filter({ hasText: nom }).first()).toBeVisible();
+});
+
+Then('la carte écrit le nom du SAMU de test', async ({ monde }) => {
+    await expect(
+        carte(monde)
+            .locator('.ev-carte__etiquette-carte')
+            .filter({ hasText: new RegExp(monde.d.locCarte!.court, 'i') })
+            .first()
+    ).toBeVisible();
+});
+
 // ---------- Fermeture ----------
 
 async function fermer(monde: Monde) {

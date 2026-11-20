@@ -84,3 +84,14 @@ describe('fond de carte et statuts masqués', () => {
         });
     });
 });
+
+describe('noms affichés sur la carte', () => {
+    it('masqués au départ, relus si mémorisés, valeurs invalides ignorées', () => {
+        expect(etatInitial()).toMatchObject({ nomsSamu: false, nomsDepartements: false });
+        expect(lireEtat(stockage(JSON.stringify({ nomsSamu: true, nomsDepartements: true })))).toMatchObject({
+            nomsSamu: true,
+            nomsDepartements: true
+        });
+        expect(lireEtat(stockage(JSON.stringify({ nomsSamu: 'oui' }))).nomsSamu).toBe(false);
+    });
+});
