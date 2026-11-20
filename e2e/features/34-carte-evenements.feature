@@ -98,8 +98,10 @@ Fonctionnalité: Carte des événements (suivi géographique)
   Scénario: Titre du GIF
     Étant donné que le SAMU de test est en service depuis le "2031-09-20"
     Quand je saisis le titre "Déploiement SAMU-SAS" pour le GIF
+    Et je saisis le texte de compteur "SAMU déployés" pour le GIF
+    Et je saisis le nom de fichier "suivi deploiement" pour le GIF
     Et je demande le GIF de l'animation
-    Alors un fichier "cartographie-mises-en-service.gif" est téléchargé
+    Alors un fichier "suivi-deploiement.gif" est téléchargé
 
   Scénario: Légende : noms des départements et des SAMU sur la carte
     Étant donné que le SAMU de test est en service depuis le "2031-09-20"

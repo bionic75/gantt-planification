@@ -339,8 +339,25 @@ When('je coche « Sans les périodes creuses » sur la carte', async ({ monde })
     await monde.page.getByLabel('Sans les périodes creuses').check();
 });
 
+/** Options du GIF : volet replié par défaut */
+async function optionsGif(monde: Monde) {
+    const volet = monde.page.locator('details.ev-carte__options-gif');
+    if (!(await volet.evaluate(el => (el as HTMLDetailsElement).open))) await volet.locator('summary').click();
+}
+
 When('je saisis le titre {string} pour le GIF', async ({ monde }, titre) => {
+    await optionsGif(monde);
     await monde.page.locator('#mapGifTitle').fill(titre);
+});
+
+When('je saisis le texte de compteur {string} pour le GIF', async ({ monde }, texte) => {
+    await optionsGif(monde);
+    await monde.page.locator('#mapGifCounter').fill(texte);
+});
+
+When('je saisis le nom de fichier {string} pour le GIF', async ({ monde }, nom) => {
+    await optionsGif(monde);
+    await monde.page.locator('#mapGifFileName').fill(nom);
 });
 
 When('je coche « Noms des départements » dans la légende', async ({ monde }) => {

@@ -27,7 +27,15 @@ import { dateFr } from './calculs';
 import { ecrireEtat, FONDS, lireEtat, opaciteDepartements, stockageNavigateur, type Fond } from './calques';
 import { centreDe, couleursDepartements, type Contours } from './departements';
 import { ENCARTS, rapprocherOutreMer } from './outre-mer';
-import { genererGif, telecharger, tracerContours, type Projection } from './gif';
+import {
+    genererGif,
+    LIBELLE_COMPTEUR_GIF,
+    NOM_FICHIER_GIF,
+    nomFichierGif,
+    telecharger,
+    tracerContours,
+    type Projection
+} from './gif';
 import {
     dateALaPositionCompressee,
     datesDeMisesEnService,
@@ -804,6 +812,9 @@ function arreter() {
 const exportGif = ref({ enCours: false, texte: '' });
 /** Titre inscrit en haut du GIF (facultatif) */
 const titreGif = ref('');
+/** Texte après « n / total » sous la date du GIF, et nom du fichier téléchargé */
+const libelleCompteurGif = ref(LIBELLE_COMPTEUR_GIF);
+const nomFichier = ref('');
 const IMAGES_GIF = 30;
 const LARGEUR_GIF = 800;
 
@@ -905,7 +916,8 @@ function bandeauGif(
     date: string,
     nb: number,
     total: number,
-    titre: string
+    titre: string,
+    libelle: string
 ) {
     const taille = Math.round(hauteur * 0.05);
     const marge = Math.round(taille * 0.5);
@@ -926,7 +938,7 @@ function bandeauGif(
     }
     ctx.font = `bold ${taille}px sans-serif`;
     const texte1 = dateFr(date);
-    const texte2 = `${nb} / ${total} mise(s) en service`;
+    const texte2 = `${nb} / ${total} ${libelle}`;
     const largeurBandeau = Math.max(ctx.measureText(texte1).width, ctx.measureText(texte2).width * 0.6) + marge * 2;
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
     ctx.fillRect(marge, haut, largeurBandeau, taille * 2.1 + marge);
@@ -991,12 +1003,13 @@ async function exporterGif() {
                     date,
                     affiches.length,
                     lecture.value.total,
-                    titreGif.value.trim()
+                    titreGif.value.trim(),
+                    libelleCompteurGif.value.trim() || LIBELLE_COMPTEUR_GIF
                 );
             },
             progression: (i, total) => (exportGif.value.texte = `GIF : image ${i} / ${total}`)
         });
-        telecharger(blob, 'cartographie-mises-en-service.gif');
+        telecharger(blob, nomFichierGif(nomFichier.value));
     } catch (e) {
         console.error('Erreur génération du GIF:', e);
         message.value = 'Le GIF n’a pas pu être généré.';
@@ -1261,15 +1274,35 @@ onBeforeUnmount(() => {
             />
             <span id="mapPlayDate" class="ev-carte__date">{{ dateLecture }}</span>
             <span id="mapPlayCount" class="ev-carte__compte">{{ compteLecture }}</span>
-            <input
-                id="mapGifTitle"
-                v-model="titreGif"
-                type="text"
-                maxlength="80"
-                class="ev-carte__titre-gif"
-                placeholder="Titre du GIF (facultatif)"
-                aria-label="Titre du GIF"
-            />
+            <details class="ev-carte__options-gif">
+                <summary>Options du GIF</summary>
+                <div class="ev-carte__options-gif-champs">
+                    <label
+                        >Titre (en haut de l'image)
+                        <input
+                            id="mapGifTitle"
+                            v-model="titreGif"
+                            type="text"
+                            maxlength="80"
+                            placeholder="Facultatif"
+                        />
+                    </label>
+                    <label
+                        >Texte du compteur
+                        <input id="mapGifCounter" v-model="libelleCompteurGif" type="text" maxlength="40" />
+                    </label>
+                    <label
+                        >Nom du fichier
+                        <input
+                            id="mapGifFileName"
+                            v-model="nomFichier"
+                            type="text"
+                            maxlength="80"
+                            :placeholder="NOM_FICHIER_GIF"
+                        />
+                    </label>
+                </div>
+            </details>
             <button
                 id="mapGifBtn"
                 type="button"
@@ -1535,12 +1568,34 @@ onBeforeUnmount(() => {
     width: auto;
     margin: 0;
 }
-.ev-carte__titre-gif {
-    width: 220px;
-    padding: 6px 8px;
-    border: 1px solid #9fb3c1;
-    border-radius: 4px;
+.ev-carte__options-gif {
+    position: relative;
     font-size: 12px;
+    color: #555;
+}
+.ev-carte__options-gif summary {
+    cursor: pointer;
+    padding: 6px 8px;
+}
+.ev-carte__options-gif-champs {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 280px;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #9fb3c1;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.ev-carte__options-gif-champs label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 .ev-carte__etiquette-carte {
     display: flex;

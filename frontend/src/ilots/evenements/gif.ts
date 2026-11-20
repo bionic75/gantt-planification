@@ -80,6 +80,21 @@ export async function genererGif(options: {
     return new Blob([gif.bytes() as BlobPart], { type: 'image/gif' });
 }
 
+/** Nom de fichier et texte du compteur par défaut du GIF */
+export const NOM_FICHIER_GIF = 'cartographie-mises-en-service';
+export const LIBELLE_COMPTEUR_GIF = 'mise(s) en service';
+
+/** Nom de fichier saisi, rendu valide : caractères interdits remplacés par « - », extension .gif ajoutée */
+export function nomFichierGif(saisie: string) {
+    const nom = saisie
+        .trim()
+        .replace(/\.gif$/i, '')
+        .replace(/[\\/:*?"<>|\s]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+    return `${nom || NOM_FICHIER_GIF}.gif`;
+}
+
 /** Télécharge un fichier généré dans le navigateur */
 export function telecharger(blob: Blob, nom: string) {
     const url = URL.createObjectURL(blob);
