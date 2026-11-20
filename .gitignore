@@ -153,3 +153,15 @@ data/pdfs/*
 
 # Client Prisma généré (npm install / npm run db:generate)
 backend/src/generated/
+
+# Données et secrets locaux : ne jamais committer (une base s'était retrouvée dans l'historique)
+/data/
+/data-avant-adoption/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.pem
+*.key
+.asana_key
