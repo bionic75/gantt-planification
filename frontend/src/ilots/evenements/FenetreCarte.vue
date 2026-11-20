@@ -818,63 +818,59 @@ const nomFichier = ref('');
 const IMAGES_GIF = 30;
 const LARGEUR_GIF = 800;
 
-/** Fond du GIF : tuiles affichées si leur serveur autorise la capture, sinon fond uni et contours des départements */
+/** Couleurs du style du GIF : mer bleu pâle, France en relief léger (ombre portée), régions en trait bleu nuit */
+const STYLE_GIF = {
+    mer: '#dbeafe',
+    ombre: 'rgba(30,58,95,0.35)',
+    vide: '#f8fafc',
+    limite: '#ffffff',
+    region: '#1e3a5f'
+};
+
+/** Fond du GIF, identique quel que soit le fond de la carte affichée : mer, ombre portée, départements vides, régions */
 function fondDuGif(
-    cible: L.Map,
     largeur: number,
     hauteur: number,
-    echelle: number,
     projeter: Projection,
     contours: Contours,
     regions: Contours | null
 ) {
-    const nouveau = () => {
-        const c = document.createElement('canvas');
-        c.width = largeur;
-        c.height = hauteur;
-        const ctx = c.getContext('2d', { willReadFrequently: true });
-        if (!ctx) throw new Error('Canvas indisponible');
-        ctx.fillStyle = FOND_UNI;
-        ctx.fillRect(0, 0, largeur, hauteur);
-        return { c, ctx };
-    };
-    const contoursSeuls = () => {
-        const { c, ctx } = nouveau();
-        tracerContours(ctx, contoursAffiches(contours), projeter, { trait: '#9fb3c1', epaisseur: 1 });
-        if (regions) tracerContours(ctx, regions, projeter, { trait: '#4f6d80', epaisseur: 2.5 });
-        if (franceSeule.value) {
-            ctx.save();
-            ctx.strokeStyle = '#90a4ae';
-            ctx.setLineDash([6, 6]);
-            for (const e of cadresEncarts()) {
-                const [x0 = 0, y0 = 0] = projeter(e.gauche, e.haut);
-                const [x1 = 0, y1 = 0] = projeter(e.droite, e.bas);
-                ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-            }
-            ctx.restore();
+    const c = document.createElement('canvas');
+    c.width = largeur;
+    c.height = hauteur;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas indisponible');
+    ctx.fillStyle = STYLE_GIF.mer;
+    ctx.fillRect(0, 0, largeur, hauteur);
+    const departements = contoursAffiches(contours);
+    const decalage = Math.max(2, Math.round(largeur * 0.005));
+    tracerContours(
+        ctx,
+        departements,
+        (lng, lat) => {
+            const [x = 0, y = 0] = projeter(lng, lat);
+            return [x + decalage, y + decalage * 1.25];
+        },
+        { trait: STYLE_GIF.ombre, epaisseur: 1, remplissage: STYLE_GIF.ombre }
+    );
+    tracerContours(ctx, departements, projeter, {
+        trait: STYLE_GIF.limite,
+        epaisseur: 1,
+        remplissage: STYLE_GIF.vide
+    });
+    if (regions) tracerContours(ctx, regions, projeter, { trait: STYLE_GIF.region, epaisseur: 1.8 });
+    if (franceSeule.value) {
+        ctx.save();
+        ctx.strokeStyle = STYLE_GIF.region;
+        ctx.setLineDash([6, 6]);
+        for (const e of cadresEncarts()) {
+            const [x0 = 0, y0 = 0] = projeter(e.gauche, e.haut);
+            const [x1 = 0, y1 = 0] = projeter(e.droite, e.bas);
+            ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
         }
-        return c;
-    };
-    if (sansFond()) return contoursSeuls();
-    const { c, ctx } = nouveau();
-    const cadre = cible.getContainer().getBoundingClientRect();
-    for (const img of cible.getContainer().querySelectorAll<HTMLImageElement>('img.leaflet-tile-loaded')) {
-        const r = img.getBoundingClientRect();
-        ctx.drawImage(
-            img,
-            (r.left - cadre.left) * echelle,
-            (r.top - cadre.top) * echelle,
-            r.width * echelle,
-            r.height * echelle
-        );
+        ctx.restore();
     }
-    try {
-        ctx.getImageData(0, 0, 1, 1);
-        return c;
-    } catch {
-        // tuiles d'un serveur qui n'autorise pas la capture : repli sur le fond uni
-        return contoursSeuls();
-    }
+    return c;
 }
 
 /** Noms des départements et des SAMU écrits sur l'image (halo blanc pour rester lisibles sur le fond) */
@@ -962,7 +958,7 @@ async function exporterGif() {
         const contours = contoursCharges;
         const periode = plage;
         if (!donnees || !contours || !periode) return;
-        const regions = sansFond() ? await contoursRegions() : null;
+        const regions = await contoursRegions();
         const conteneurCarte = cible.getContainer();
         const echelle = LARGEUR_GIF / conteneurCarte.clientWidth;
         const hauteur = Math.round(conteneurCarte.clientHeight * echelle);
@@ -971,11 +967,10 @@ async function exporterGif() {
             return [pt.x * echelle, pt.y * echelle];
         };
         const contoursDuGif = contoursAffiches(contours);
-        const base = fondDuGif(cible, LARGEUR_GIF, hauteur, echelle, projeter, contours, regions);
+        const base = fondDuGif(LARGEUR_GIF, hauteur, projeter, contours, regions);
         const dates = compresser.value
             ? datesDesImagesCompressees(datesMes, IMAGES_GIF)
             : datesDesImages(periode, IMAGES_GIF);
-        const opacite = opaciteDepartements(transparence.value);
         const blob = await genererGif({
             largeur: LARGEUR_GIF,
             hauteur,
@@ -992,7 +987,7 @@ async function exporterGif() {
                         ctx,
                         contoursDuGif,
                         projeter,
-                        { trait: c.couleur, epaisseur: 1, remplissage: c.couleur, opacite },
+                        { trait: STYLE_GIF.limite, epaisseur: 1, remplissage: c.couleur },
                         new Set([code])
                     );
                 etiquettesGif(ctx, hauteur, contoursDuGif, projeter, couleursDuJour);
