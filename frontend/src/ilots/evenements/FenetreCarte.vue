@@ -284,8 +284,7 @@ const contoursRegions = () => chargerContours('/vue/regions.geojson');
 function retirerDepartements() {
     calqueDepartements?.remove();
     calqueDepartements = null;
-    etiquettes?.remove();
-    etiquettes = null;
+    retirerEtiquettes();
     legende.value = [];
 }
 
@@ -392,31 +391,86 @@ const lignesEtiquette = (nom: string, samu: string[]) => [
     ...(nomsSamu.value ? samu : [])
 ];
 
-/** Noms sur la carte (légende : « Noms des SAMU », « Noms des départements ») */
-function dessinerEtiquettes(cible: L.Map, contours: Contours, couleurs: Map<string, { samu: string[] }>) {
+/** Police des étiquettes de la carte (mesure de leur emprise pour les écarter les unes des autres) */
+const POLICE_ETIQUETTE = 'bold 11px sans-serif';
+const INTERLIGNE_ETIQUETTE = 11 * 1.15;
+let surZoomEtiquettes: (() => void) | null = null;
+
+function retirerEtiquettes() {
+    if (surZoomEtiquettes) carte?.off('zoomend', surZoomEtiquettes);
+    surZoomEtiquettes = null;
     etiquettes?.remove();
     etiquettes = null;
+}
+
+/** Noms sur la carte (légende : « Noms des SAMU », « Noms des départements »), écartés les uns des autres */
+function dessinerEtiquettes(cible: L.Map, contours: Contours, couleurs: Map<string, { samu: string[] }>) {
+    retirerEtiquettes();
     if (!nomsSamu.value && !nomsDepartements.value) return;
-    const groupe = L.layerGroup();
+    const mesure = document.createElement('canvas').getContext('2d');
+    if (mesure) mesure.font = POLICE_ETIQUETTE;
+    const textes = new Map<string, string[]>();
+    const ancrages: { id: string; lat: number; lng: number }[] = [];
     for (const f of contours.features) {
         const c = couleurs.get(f.properties.code);
         const lignes = c ? lignesEtiquette(f.properties.nom, c.samu) : [];
         if (!lignes.length) continue;
         const [lng, lat] = centreDe(f);
-        const el = document.createElement('div');
-        el.className = 'ev-carte__etiquette-carte';
-        for (const t of lignes) {
-            const ligne = document.createElement('span');
-            ligne.textContent = t;
-            el.appendChild(ligne);
-        }
-        L.marker([lat, lng], {
-            icon: L.divIcon({ className: '', html: el.outerHTML, iconSize: [0, 0] }),
-            interactive: false,
-            keyboard: false
-        }).addTo(groupe);
+        textes.set(f.properties.code, lignes);
+        ancrages.push({ id: f.properties.code, lat, lng });
     }
-    etiquettes = groupe.addTo(cible);
+    /** Placement selon le zoom : les distances en pixels changent, pas les coordonnées */
+    const placer = () => {
+        etiquettes?.remove();
+        const groupe = L.layerGroup();
+        const aPlacer: EtiquetteAPlacer[] = ancrages.map(a => {
+            const lignes = textes.get(a.id) ?? [];
+            const p = cible.latLngToLayerPoint([a.lat, a.lng]);
+            return {
+                id: a.id,
+                x: p.x,
+                y: p.y,
+                largeur: Math.max(...lignes.map(t => mesure?.measureText(t).width ?? t.length * 6)),
+                hauteur: lignes.length * INTERLIGNE_ETIQUETTE
+            };
+        });
+        const placees = placerEtiquettes(aPlacer, Infinity, Infinity);
+        for (const p of placees) {
+            const ancre = ancrages.find(a => a.id === p.id);
+            if (!ancre) continue;
+            if (p.deplacee) {
+                // Trait de rappel vers le département
+                L.polyline([[ancre.lat, ancre.lng], cible.layerPointToLatLng([p.cx, p.cy])], {
+                    color: '#1e3a5f',
+                    weight: 1,
+                    interactive: false
+                }).addTo(groupe);
+                L.circleMarker([ancre.lat, ancre.lng], {
+                    radius: 2.5,
+                    color: '#1e3a5f',
+                    fillOpacity: 1,
+                    weight: 1,
+                    interactive: false
+                }).addTo(groupe);
+            }
+            const el = document.createElement('div');
+            el.className = 'ev-carte__etiquette-carte';
+            for (const t of textes.get(p.id) ?? []) {
+                const ligne = document.createElement('span');
+                ligne.textContent = t;
+                el.appendChild(ligne);
+            }
+            L.marker(cible.layerPointToLatLng([p.cx, p.cy]), {
+                icon: L.divIcon({ className: '', html: el.outerHTML, iconSize: [0, 0] }),
+                interactive: false,
+                keyboard: false
+            }).addTo(groupe);
+        }
+        etiquettes = groupe.addTo(cible);
+    };
+    surZoomEtiquettes = placer;
+    cible.on('zoomend', placer);
+    placer();
 }
 
 function changerNoms() {
