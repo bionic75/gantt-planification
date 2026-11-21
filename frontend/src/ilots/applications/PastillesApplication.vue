@@ -10,7 +10,7 @@ import { useInactiviteStore } from '@/ilots/connectes/inactivite';
 
 const props = withDefaults(defineProps<{ prefixe?: string }>(), { prefixe: '' });
 
-const MAX_AVATARS = 5;
+const MAX_AVATARS = 3;
 const connectes = useConnectesStore();
 const inactivite = useInactiviteStore();
 
@@ -94,6 +94,9 @@ defineExpose({ relire: () => connectes.charger() });
     display: flex;
     align-items: center;
     gap: 4px;
+    /* Le menu Applications est fixé à 340 px du bord : la pastille ne doit jamais le recouvrir */
+    max-width: 208px;
+    white-space: nowrap;
 }
 .gp-pastilles__point {
     font-size: 12px;
@@ -119,6 +122,7 @@ defineExpose({ relire: () => connectes.charger() });
     position: relative;
     overflow: hidden;
     box-sizing: content-box;
+    flex-shrink: 0;
 }
 .gp-pastilles__avatar--plus {
     background-color: #95a5a6;
@@ -135,6 +139,9 @@ defineExpose({ relire: () => connectes.charger() });
     font-size: 11px;
     color: #666;
     margin-left: 4px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .gp-pastilles__minuteur {
     position: fixed;
