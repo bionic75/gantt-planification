@@ -4,6 +4,7 @@ import { env } from './src/config/env.ts';
 import { execFileSync } from 'child_process';
 import type { Express } from 'express';
 import fs from 'fs';
+import type { Server } from 'http';
 import { registerDumpRoutes } from './scripts/db-dump.ts';
 import { createApp, finalizeApp } from './src/app.ts';
 import { checkEncoding, checkMigrations, connectPrisma, prisma } from './src/db/prisma.ts';
@@ -17,6 +18,17 @@ import { logUserAction } from './src/services/action-log.ts';
 import { getReusableTransporter, resetReusableTransporter, startEmailQueueWorker } from './src/services/email-queue.ts';
 
 const PORT = env.PORT;
+let httpServer: Server | undefined;
+
+// Tube de sortie fermé (lanceur disparu) : toute écriture échoue, y compris celle d'un message d'erreur.
+// Il faut alors quitter sans rien écrire (sinon uncaughtException → console.error → EPIPE… sans fin, à 100 % de CPU).
+const ERREURS_TUBE_FERME = new Set(['EPIPE', 'ERR_STREAM_DESTROYED', 'ERR_STREAM_WRITE_AFTER_END']);
+const tubeFerme = (err: unknown) => ERREURS_TUBE_FERME.has((err as NodeJS.ErrnoException | undefined)?.code ?? '');
+for (const flux of [process.stdout, process.stderr]) {
+    flux.on('error', err => {
+        if (tubeFerme(err)) process.exit(1);
+    });
+}
 
 // Version de l'application (commentaire <!-- vX.Y.Z --> de index.html), affichée dans l'administration
 async function syncAppVersion() {
@@ -62,11 +74,11 @@ function listen(app: Express, attempt = 1) {
         );
         process.exit(1);
     }
-    const server = app.listen(PORT, () => {
+    const server = (httpServer = app.listen(PORT, () => {
         console.log(`🚀 Serveur démarré sur le port ${PORT}`);
         console.log(`⏰ Automatisations programmées actives`);
         setTimeout(() => warmupSMTPConnection(), 5000);
-    });
+    }));
     server.on('error', (err: NodeJS.ErrnoException) => {
         if (err.code === 'EADDRINUSE') {
             console.warn(`⚠️  Port ${PORT} encore occupé — nouvelle tentative dans 2s...`);
@@ -135,10 +147,34 @@ process.on('unhandledRejection', reason => {
     console.error('⚠️ Stack:', (reason as { stack?: string } | undefined)?.stack || 'no stack');
 });
 process.on('uncaughtException', err => {
+    if (tubeFerme(err)) process.exit(1);
     console.error('🔥 Uncaught Exception:', err);
     console.error('🔥 Stack:', err?.stack || 'no stack');
     // Pas de process.exit() : le serveur continue
 });
+
+// Arrêt propre (Ctrl+C, kill, fermeture du terminal) : serveur HTTP puis base fermés ; garde-fou si cela traîne
+let arretEnCours = false;
+function arreter(signal: string) {
+    if (arretEnCours) return;
+    arretEnCours = true;
+    console.log(`🛑 ${signal} reçu : arrêt du serveur`);
+    setTimeout(() => process.exit(1), 5000).unref();
+    const fermerBase = () => prisma.$disconnect().finally(() => process.exit(0));
+    if (httpServer) httpServer.close(() => void fermerBase());
+    else void fermerBase();
+    httpServer?.closeAllConnections();
+}
+for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => arreter(signal));
+
+// Tests : le serveur ne survit pas à son lanceur (GANTT_TEST_PARENT_WATCH posé par tests/helpers/server.ts)
+if (process.env.GANTT_TEST_PARENT_WATCH === '1') {
+    const parent = process.ppid;
+    setInterval(() => {
+        if (process.ppid !== parent || process.ppid === 1) process.exit(1);
+    }, 2000).unref();
+    process.on('disconnect', () => process.exit(1));
+}
 
 main().catch(err => {
     console.error('❌ Démarrage impossible :', err);
