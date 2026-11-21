@@ -86,8 +86,17 @@ export async function creerLocalisation(
     { geo = true, prefixe = 'SAMU 9' }: { geo?: boolean; prefixe?: string } = {}
 ) {
     const api = await adminApi(monde);
-    // Numéro à 4 chiffres « 9xxx » : jamais celui d'un SAMU réel, et lu comme un numéro par l'application
-    const court = `${prefixe}${alea(3, '0123456789')}`;
+    // Numéro à 4 chiffres « 9xxx » : jamais celui d'un SAMU réel, et lu comme un numéro par l'application. Numéro libre
+    // parmi les localisations existantes : l'application rattache par numéro (import Asana, « SAMU 9123 » et
+    // « SAMU-SAS 9123 » désignent le même SAMU), et des scénarios parallèles créent chacun leur SAMU de test.
+    const { locations } = await api.ok('GET', '/api/locations');
+    const numero = (libelle: unknown) => /(\d+[A-Za-z]?)\s*$/.exec(String(libelle ?? '').trim())?.[1]?.toUpperCase();
+    const pris = new Set((locations as { libelle_court?: string }[]).map(l => numero(l.libelle_court)));
+    let court = '';
+    for (let essai = 0; essai < 50; essai++) {
+        court = `${prefixe}${alea(3, '0123456789')}`;
+        if (!pris.has(numero(court))) break;
+    }
     const body = {
         libelle_long: `${monde.unique('E2E SAMU')} ${court}`,
         libelle_court: court,

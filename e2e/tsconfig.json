@@ -1,10 +1,10 @@
 {
     // Tests de bout en bout en TypeScript, exécutés sans compilation : Playwright et playwright-bdd chargent les
-    // fichiers .ts, Node 22 exécute scripts/seed.ts en effaçant les types (syntaxe effaçable seulement : ni enum, ni
+    // fichiers .ts, Node 26 exécute scripts/seed.ts en effaçant les types (syntaxe effaçable seulement : ni enum, ni
     // namespace, ni propriétés de paramètres). Vérification : npm run typecheck:e2e (à la racine du projet).
     "compilerOptions": {
-        "target": "ES2023",
-        "lib": ["ES2023", "DOM", "DOM.Iterable"],
+        "target": "ES2025",
+        "lib": ["ES2025", "DOM", "DOM.Iterable"],
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "types": ["node"],

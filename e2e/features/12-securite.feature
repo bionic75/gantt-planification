@@ -78,6 +78,6 @@ Fonctionnalité: Sécurité
     Alors les en-têtes de sécurité sont présents
 
   @exploitation
-  Scénario: Node 22 corrigé (faille Brotli)
+  Scénario: Node 26 à jour (LTS, correctifs de sécurité de novembre 2026)
     Quand je consulte la version de Node.js de l'environnement
-    Alors la version est 22.23.4 ou supérieure
+    Alors la version est 26.13.1 ou supérieure

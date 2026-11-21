@@ -6,7 +6,7 @@ sans compilation ([migration-backend-ts.md](migration-backend-ts.md)).
 
 | Élément         | Technologie                                                                        |
 | --------------- | ---------------------------------------------------------------------------------- |
-| Serveur         | Node.js 22, Express 4, TypeScript exécuté sans compilation                         |
+| Serveur         | Node.js 26, Express 4, TypeScript exécuté sans compilation                         |
 | Base de données | Prisma 7 : SQLite (défaut), PostgreSQL ou MariaDB ([détails](base-de-donnees.md))  |
 | Interface       | Vue 3 / TypeScript dans `frontend/` (pages, images, sources, build Vite)           |
 | PDF             | Chromium piloté par Puppeteer (CRA, export du planning) ; LibreOffice (PPTX → PDF) |

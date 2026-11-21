@@ -1,11 +1,11 @@
 {
-    // Serveur en TypeScript, exécuté sans compilation : Node 22 efface les types au chargement des fichiers .ts
+    // Serveur en TypeScript, exécuté sans compilation : Node 26 efface les types au chargement des fichiers .ts
     // (syntaxe effaçable seulement : ni enum, ni namespace, ni propriétés de paramètres ; imports avec l'extension .ts).
     // Vérification : npm run typecheck:back (à la racine du projet).
     "compilerOptions": {
-        "target": "ES2023",
-        // Node 22 : ES2024, assistants d'itérateurs (filter, map… sur un générateur) et opérations d'ensembles
-        "lib": ["ES2024", "ES2025.Iterator", "ES2025.Collection"],
+        "target": "ES2025",
+        // Node 26 (V8 14.6) : ES2025 complet (assistants d'itérateurs, opérations d'ensembles, Promise.try…)
+        "lib": ["ES2025"],
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "types": ["node"],

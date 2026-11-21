@@ -40,7 +40,7 @@
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": ">=22.22.2"
+    "node": ">=26.13.1"
   },
   "overrides": {
     "image-size": "^2.0.4",
@@ -55,5 +55,12 @@
     "prettier": "^3.9.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.73.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "bcrypt": true,
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true,
+    "puppeteer@25.16.0": true
   }
 }

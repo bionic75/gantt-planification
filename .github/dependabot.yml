@@ -38,7 +38,7 @@ updates:
     commit-message:
       prefix: deps
 
-  # Image de base du Dockerfile (épinglée par digest : chaque nouvelle image node:22-alpine est proposée)
+  # Image de base du Dockerfile (épinglée par digest : chaque nouvelle image node:26-alpine est proposée)
   - package-ecosystem: docker
     directory: /
     schedule:
