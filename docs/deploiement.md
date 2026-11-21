@@ -12,7 +12,7 @@ Au démarrage, le conteneur applique les migrations de base en attente puis lanc
 
 ## Image Docker
 
-`Dockerfile` : Node 22 (Alpine) avec Chromium (génération des PDF), dépendances de production, client Prisma généré
+`Dockerfile` : Node 26 (Alpine) avec Chromium (génération des PDF), dépendances de production, client Prisma généré
 pour la base choisie (argument `DB_PROVIDER`, `sqlite` par défaut). L'application tourne avec l'utilisateur `node`
 (uid 1000) et écoute sur le port `PORT` (3000 par défaut). L'image ne contient pas npm (ni yarn, corepack), inutile à
 l'exécution et source d'alertes de vulnérabilités : les commandes se lancent avec `node`, par exemple
@@ -96,7 +96,7 @@ se connecter à la VM.
 
 **Actions GitHub** : épinglées par empreinte de commit (SHA), version en commentaire ; une étiquette déplacée vers du
 code malveillant (comme `trivy-action` en mars 2026) n'a donc pas d'effet. Dependabot propose chaque semaine les
-nouvelles versions des actions, des paquets npm et de l'image de base `node:22-alpine` (épinglée par digest dans le
+nouvelles versions des actions, des paquets npm et de l'image de base `node:26-alpine` (épinglée par digest dans le
 `Dockerfile`), à relire avant fusion.
 
 ## Publier une version

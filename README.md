@@ -20,8 +20,13 @@ déplacements.
 
 ## Démarrage rapide
 
-Prérequis : Node.js 22.22.2 ou plus. Les PDF utilisent le Chromium téléchargé par Puppeteer à l'installation (ou celui
-indiqué par `PUPPETEER_EXECUTABLE_PATH`).
+Prérequis : Node.js 26.13.1 ou plus (LTS), avec le npm qu'il fournit. Les PDF utilisent le Chromium téléchargé par
+Puppeteer à l'installation (ou celui indiqué par `PUPPETEER_EXECUTABLE_PATH`).
+
+Scripts d'installation des dépendances : npm (11.20 et plus) ne les exécute que pour les paquets autorisés dans
+`package.json` (`allowScripts` : `better-sqlite3` et `bcrypt` pour leurs binaires natifs, Prisma, Puppeteer).
+Autorisations épinglées à une version : après la mise à jour d'un de ces paquets, `npm install-scripts ls` les liste
+à nouveau ; relire le script, puis `npm install-scripts approve <paquet>`.
 
 ```bash
 npm install            # dépendances des paquets backend et frontend, client Prisma (SQLite par défaut)

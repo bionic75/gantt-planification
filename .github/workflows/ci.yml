@@ -22,7 +22,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
@@ -86,7 +86,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
@@ -135,7 +135,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
 
       - name: Install dependencies
@@ -203,7 +203,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -297,7 +297,7 @@ jobs:
       - name: Build image
         run: docker build --build-arg DB_PROVIDER=${{ vars.DB_PROVIDER || 'sqlite' }} -t gantt-planification:ci .
 
-      # Vérifie que l'image démarre (dépendances natives compilées pour Node 22 / Alpine) ; sans objet sans base
+      # Vérifie que l'image démarre (dépendances natives compilées pour Node 26 / Alpine) ; sans objet sans base
       # PostgreSQL / MariaDB à disposition. Base neuve en production : mot de passe du compte administrateur initial
       # obligatoire (aléatoire, jamais utilisé)
       - name: Smoke test

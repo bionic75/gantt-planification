@@ -202,7 +202,7 @@ auth.setup.ts    connexions séquentielles des 4 profils
 
 TypeScript : étapes, support, configuration et jeu de données sont en TypeScript `strict`, exécutés sans
 compilation (Playwright et playwright-bdd chargent les fichiers `.ts` ; `node scripts/seed.ts` efface les types,
-Node.js 22.18 ou plus). Syntaxe « effaçable » seulement (ni `enum`, ni `namespace`) et imports avec l'extension
+Node.js 26.13.1 ou plus). Syntaxe « effaçable » seulement (ni `enum`, ni `namespace`) et imports avec l'extension
 `.ts`. Vérification : `npm run typecheck` (dans `e2e/`) ou `npm run typecheck:e2e` (à la racine, comme la CI).
 Données partagées entre étapes : `monde.d`, décrites par `support/donnees-scenario.ts` (un champ ajouté par une
 étape y est déclaré ; un nom mal orthographié est une erreur de compilation). Une étape qui lit une donnée posée par
