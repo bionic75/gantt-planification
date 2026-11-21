@@ -26,6 +26,7 @@ import {
 import { dateFr } from './calculs';
 import { ecrireEtat, FONDS, lireEtat, opaciteDepartements, stockageNavigateur, type Fond } from './calques';
 import { centreDe, couleursDepartements, type Contours } from './departements';
+import { placerEtiquettes, type EtiquetteAPlacer } from './etiquettes';
 import { ENCARTS, rapprocherOutreMer } from './outre-mer';
 import {
     genererGif,
@@ -876,6 +877,7 @@ function fondDuGif(
 /** Noms des départements et des SAMU écrits sur l'image (halo blanc pour rester lisibles sur le fond) */
 function etiquettesGif(
     ctx: CanvasRenderingContext2D,
+    largeur: number,
     hauteur: number,
     contours: Contours,
     projeter: Projection,
@@ -889,16 +891,46 @@ function etiquettesGif(
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 3;
+    const interligne = taille * 1.15;
+    const aPlacer: EtiquetteAPlacer[] = [];
+    const textes = new Map<string, string[]>();
     for (const f of contours.features) {
         const c = couleurs.get(f.properties.code);
         const lignes = c ? lignesEtiquette(f.properties.nom, c.samu) : [];
+        if (!lignes.length) continue;
         const [x, y] = projeter(...centreDe(f));
+        textes.set(f.properties.code, lignes);
+        aPlacer.push({
+            id: f.properties.code,
+            x,
+            y,
+            largeur: Math.max(...lignes.map(t => ctx.measureText(t).width)),
+            hauteur: lignes.length * interligne
+        });
+    }
+    // Étiquettes écartées les unes des autres (un trait de rappel relie celles qui ont dû s'éloigner de leur département)
+    const placees = placerEtiquettes(aPlacer, largeur, hauteur);
+    for (const p of placees.filter(p => p.deplacee)) {
+        ctx.strokeStyle = '#1e3a5f';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.cx, p.cy);
+        ctx.stroke();
+        ctx.fillStyle = '#1e3a5f';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.lineWidth = 3;
+    for (const p of placees) {
+        const lignes = textes.get(p.id) ?? [];
         lignes.forEach((t, i) => {
-            const yl = y + (i - (lignes.length - 1) / 2) * taille * 1.15;
+            const yl = p.cy + (i - (lignes.length - 1) / 2) * interligne;
             ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-            ctx.strokeText(t, x, yl);
+            ctx.strokeText(t, p.cx, yl);
             ctx.fillStyle = '#1a237e';
-            ctx.fillText(t, x, yl);
+            ctx.fillText(t, p.cx, yl);
         });
     }
     ctx.restore();
@@ -990,7 +1022,7 @@ async function exporterGif() {
                         { trait: STYLE_GIF.limite, epaisseur: 1, remplissage: c.couleur },
                         new Set([code])
                     );
-                etiquettesGif(ctx, hauteur, contoursDuGif, projeter, couleursDuJour);
+                etiquettesGif(ctx, LARGEUR_GIF, hauteur, contoursDuGif, projeter, couleursDuJour);
                 bandeauGif(
                     ctx,
                     LARGEUR_GIF,
