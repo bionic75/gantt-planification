@@ -24,5 +24,9 @@
     "vue-router": "4.6.4",
     "vue-tsc": "3.3.13",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "dependencies": {
+    "gifenc": "^1.0.3",
+    "mp4-muxer": "^5.2.2"
   }
 }

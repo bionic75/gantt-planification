@@ -4,22 +4,19 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { apiDeploiements } from '@/api/deploiements';
+import { apiDeploiements, type DeploiementCarte, type StatutDeploiement } from '@/api/deploiements';
 import { ecouter } from '@/evenements';
 import { apiCarte, type EvenementCarte, type ExpertCarte, type LocalisationCarte } from '@/api/carte';
 import AppModal from '@/composants/AppModal.vue';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
 import { bulleExpert, bulleLieu, htmlPastilleLieu, pastilleExpert } from './bulles-carte';
 import {
-    commencesA,
-    compteParLieu,
     dateALaPosition,
     filtrer,
     grouperParLieu,
     libelleParticipant,
     localisationsGeolocalisees,
     placerExperts,
-    plageLecture,
     propositions,
     typesProposes,
     type ExpertPlace,
@@ -27,8 +24,29 @@ import {
     type PlageLecture
 } from './carte';
 import { dateFr } from './calculs';
-import { ecrireEtat, lireEtat, opaciteDepartements, stockageNavigateur } from './calques';
-import { couleursDepartements, type Contours } from './departements';
+import { ecrireEtat, FONDS, lireEtat, opaciteDepartements, stockageNavigateur, type Fond } from './calques';
+import { centreDe, couleursDepartements, type Contours } from './departements';
+import { genererMp4, mp4Disponible, pair } from './mp4';
+import { placerEtiquettes, type EtiquetteAPlacer } from './etiquettes';
+import { ENCARTS, rapprocherOutreMer } from './outre-mer';
+import {
+    genererGif,
+    LIBELLE_COMPTEUR_GIF,
+    NOM_FICHIER_GIF,
+    nomFichierGif,
+    telecharger,
+    tracerContours,
+    type Projection
+} from './gif';
+import {
+    dateALaPositionCompressee,
+    datesDeMisesEnService,
+    datesDesImages,
+    datesDesImagesCompressees,
+    misesEnServiceA,
+    nbMisesEnService,
+    plageMisesEnService
+} from './mises-en-service';
 import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
 
@@ -51,6 +69,14 @@ const lieuxVisibles = ref(etatInitialCalques.evenements);
 const departementsVisibles = ref(etatInitialCalques.departements);
 /** Part d'opacité retirée aux départements (0 à 100) */
 const transparence = ref(etatInitialCalques.transparence);
+const fond = ref<Fond>(etatInitialCalques.fond);
+/** Carte de France seule : sans fond, outre-mer rapprochée de la métropole */
+const franceSeule = ref(etatInitialCalques.franceSeule);
+/** Noms écrits sur la carte, sur chaque département coloré */
+const nomsSamu = ref(etatInitialCalques.nomsSamu);
+const nomsDepartements = ref(etatInitialCalques.nomsDepartements);
+/** Statuts masqués par un clic sur la légende (libellés) */
+const statutsMasques = ref(new Set(etatInitialCalques.statutsMasques));
 
 /** Mémorise l'état des calques dans le navigateur */
 const memoriserCalques = () =>
@@ -58,7 +84,12 @@ const memoriserCalques = () =>
         departements: departementsVisibles.value,
         evenements: lieuxVisibles.value,
         experts: expertsVisibles.value,
-        transparence: transparence.value
+        transparence: transparence.value,
+        fond: fond.value,
+        statutsMasques: [...statutsMasques.value],
+        franceSeule: franceSeule.value,
+        nomsSamu: nomsSamu.value,
+        nomsDepartements: nomsDepartements.value
     });
 
 const localisations = ref<LocalisationCarte[]>([]);
@@ -85,19 +116,121 @@ const conteneur = ref<HTMLElement | null>(null);
 let carte: L.Map | null = null;
 let calque: L.LayerGroup | null = null;
 let calqueDepartements: L.GeoJSON | null = null;
+/** Noms des SAMU et des départements écrits sur la carte */
+let etiquettes: L.LayerGroup | null = null;
 /** Rendu SVG des départements : porte les définitions des motifs (<defs>) */
 let renduDepartements: L.SVG | null = null;
 /** Statuts affichés sur la carte (légende) : couleur, motif, libellé et nombre de départements */
-const legende = ref<{ statut: string; couleur: string; motif: string; departements: number }[]>([]);
+const legende = ref<{ statut: string; couleur: string; motif: string; departements: number; masque: boolean }[]>([]);
+
+const FOND_UNI = '#e6edf3';
+const FONDS_CARTE: Record<Fond, { libelle: string }> = {
+    plan: { libelle: 'Plan' },
+    satellite: { libelle: 'Satellite' },
+    administratif: { libelle: 'Administratif (départements, régions)' }
+};
+/** Fonds en tuiles ; images demandées avec `crossOrigin` pour que le GIF puisse les reprendre */
+const TUILES: Record<'plan' | 'satellite', { url: string; attribution: string; maxZoom: number }> = {
+    plan: {
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 18
+    },
+    satellite: {
+        url:
+            'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS' +
+            '&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+        attribution: '© <a href="https://geoservices.ign.fr/">IGN</a> – Géoplateforme (orthophotographies)',
+        maxZoom: 19
+    }
+};
+let tuiles: L.TileLayer | null = null;
+let calqueAdministratif: L.LayerGroup | null = null;
 
 function creerCarte() {
     if (!conteneur.value) return;
     carte = L.map(conteneur.value, { zoomControl: true }).setView([46.6, 2.3], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 18
-    }).addTo(carte);
+    carte.createPane('administratif').style.zIndex = '250';
     calque = L.layerGroup().addTo(carte);
+    void appliquerFond();
+}
+
+/** Fond choisi : tuiles (plan, satellite) ou fond uni avec contours des départements et des régions */
+async function appliquerFond() {
+    const cible = carte;
+    if (!cible) return;
+    tuiles?.remove();
+    tuiles = null;
+    calqueAdministratif?.remove();
+    calqueAdministratif = null;
+    cible.getContainer().style.background = sansFond() ? FOND_UNI : '';
+    if (!sansFond()) {
+        const t = fond.value === 'satellite' ? TUILES.satellite : TUILES.plan;
+        tuiles = L.tileLayer(t.url, { attribution: t.attribution, maxZoom: t.maxZoom, crossOrigin: true }).addTo(cible);
+        return;
+    }
+    try {
+        const [regions, departements] = await Promise.all([contoursRegions(), contoursDepartements()]);
+        if (carte !== cible || !sansFond()) return;
+        const rendu = L.svg({ pane: 'administratif' });
+        const trait = (color: string, weight: number) => () => ({
+            renderer: rendu,
+            color,
+            weight,
+            fill: false,
+            interactive: false
+        });
+        calqueAdministratif = L.layerGroup([
+            L.geoJSON(contoursAffiches(departements) as never, {
+                style: () => ({ ...trait('#9fb3c1', 0.8)(), fill: true, fillOpacity: 0, interactive: true }),
+                onEachFeature: (f, couche) => {
+                    // Nom du département au survol, même sans statut (les départements colorés ont leur propre bulle)
+                    const texte = document.createElement('span');
+                    texte.textContent = (f.properties as { nom: string }).nom;
+                    couche.bindTooltip(texte, { sticky: true });
+                }
+            }),
+            L.geoJSON(regions as never, { style: trait('#4f6d80', 2) }),
+            ...(franceSeule.value ? encartsOutreMer(trait) : [])
+        ]).addTo(cible);
+    } catch (e) {
+        console.error('Erreur chargement du fond administratif:', e);
+        message.value = 'Le fond administratif n’a pas pu être chargé.';
+    }
+}
+
+/** Cadres en pointillés des encarts d'outre-mer (mode « France seule ») */
+const cadresEncarts = () =>
+    Object.values(ENCARTS).map(e => ({
+        bas: e.lat - e.cote / 2,
+        haut: e.lat + e.cote / 2,
+        gauche: e.lng - e.cote / 2,
+        droite: e.lng + e.cote / 2
+    }));
+function encartsOutreMer(trait: (color: string, weight: number) => () => L.PathOptions) {
+    return cadresEncarts().map(c =>
+        L.rectangle(
+            [
+                [c.bas, c.gauche],
+                [c.haut, c.droite]
+            ],
+            { ...trait('#90a4ae', 1)(), dashArray: '4 4' }
+        )
+    );
+}
+
+function changerFond() {
+    memoriserCalques();
+    void appliquerFond();
+}
+
+/** « France seule » : sans fond de carte, outre-mer rapprochée de la métropole */
+function basculerFranceSeule() {
+    franceSeule.value = !franceSeule.value;
+    memoriserCalques();
+    void appliquerFond();
+    peindreDepartements();
+    cadrerFrance();
 }
 
 function detruireCarte() {
@@ -106,27 +239,53 @@ function detruireCarte() {
     calque = null;
     calqueDepartements = null;
     renduDepartements = null;
+    tuiles = null;
+    calqueAdministratif = null;
 }
 
 // ---------- Calque des départements (couleur du statut des déploiements) ----------
 
-let contoursEnCours: Promise<Contours> | null = null;
-/** Contours des départements, chargés une seule fois (fichier de l'application) */
+const cacheContours = new Map<string, Promise<Contours>>();
+/** Contours chargés une seule fois (fichiers de l'application) */
+function chargerContours(url: string) {
+    let p = cacheContours.get(url);
+    if (!p) {
+        p = fetch(url)
+            .then(r => {
+                if (!r.ok) throw new Error(`Erreur ${r.status}`);
+                return r.json() as Promise<Contours>;
+            })
+            .catch(e => {
+                cacheContours.delete(url);
+                throw e;
+            });
+        cacheContours.set(url, p);
+    }
+    return p;
+}
+/** Départements de métropole et d'outre-mer (deux fichiers de l'application) */
+let departementsEnCours: Promise<Contours> | null = null;
 const contoursDepartements = () =>
-    (contoursEnCours ??= fetch('/vue/departements.geojson')
-        .then(r => {
-            if (!r.ok) throw new Error(`Erreur ${r.status}`);
-            return r.json() as Promise<Contours>;
-        })
+    (departementsEnCours ??= Promise.all([
+        chargerContours('/vue/departements.geojson'),
+        chargerContours('/vue/departements-outre-mer.geojson')
+    ])
+        .then(([metropole, outreMer]) => ({ features: [...metropole.features, ...outreMer.features] }))
         .catch(e => {
-            contoursEnCours = null;
+            departementsEnCours = null;
             throw e;
         }));
+/** Contours tels qu'affichés : outre-mer rapprochée de la métropole en mode « France seule » */
+const contoursAffiches = (c: Contours) => (franceSeule.value ? rapprocherOutreMer(c) : c);
+/** Sans fond de carte : fond uni et contours administratifs */
+const sansFond = () => fond.value === 'administratif' || franceSeule.value;
+const contoursRegions = () => chargerContours('/vue/regions.geojson');
 
 /** Départements colorés : un par département dont un SAMU a un statut ; sous les pastilles */
 function retirerDepartements() {
     calqueDepartements?.remove();
     calqueDepartements = null;
+    retirerEtiquettes();
     legende.value = [];
 }
 
@@ -141,64 +300,209 @@ function renduAvecMotifs(cible: L.Map, definitions: string) {
     return renduDepartements;
 }
 
+/** Statuts et SAMU suivis, relus quand ils changent ; contours des départements */
+let donneesDeploiements: { statuses: StatutDeploiement[]; deployments: DeploiementCarte[] } | null = null;
+let contoursCharges: Contours | null = null;
+
+async function chargerDonneesDepartements() {
+    const [contours, donnees] = await Promise.all([contoursDepartements(), apiDeploiements.carte()]);
+    contoursCharges = contours;
+    donneesDeploiements = donnees;
+}
+
+/** SAMU montrés : tous ; pendant la lecture, ceux « En service » déjà atteints à la date lue */
+function deploiementsAffiches() {
+    if (!donneesDeploiements) return [];
+    if (lecture.value.active && plage && lecture.value.date)
+        return misesEnServiceA(
+            donneesDeploiements.deployments,
+            donneesDeploiements.statuses,
+            plage,
+            lecture.value.date
+        );
+    return donneesDeploiements.deployments;
+}
+
+/** Peint les départements d'après les données déjà chargées (statuts masqués par la légende exclus) */
+function peindreDepartements() {
+    const cible = carte;
+    retirerDepartements();
+    if (!cible || !departementsVisibles.value || !donneesDeploiements || !contoursCharges) return;
+    const contours = contoursCharges;
+    const statuts = donneesDeploiements.statuses;
+    const affiches = deploiementsAffiches();
+    const toutes = couleursDepartements(affiches, statuts, contours);
+    const couleurs = statutsMasques.value.size
+        ? couleursDepartements(affiches, statuts, contours, statutsMasques.value)
+        : toutes;
+    const uniques = new Map([...couleurs.values()].map(c => [idMotif(c.couleur, c.motif), c]));
+    const rendu = renduAvecMotifs(cible, [...uniques.values()].map(c => svgMotif(c.couleur, c.motif)).join(''));
+    const parStatut = new Map<
+        string,
+        { statut: string; couleur: string; motif: string; departements: number; masque: boolean }
+    >();
+    for (const c of toutes.values()) {
+        const e = parStatut.get(c.statut) ?? {
+            statut: c.statut,
+            couleur: c.couleur,
+            motif: c.motif,
+            departements: 0,
+            masque: statutsMasques.value.has(c.statut)
+        };
+        e.departements++;
+        parStatut.set(c.statut, e);
+    }
+    legende.value = [...parStatut.values()];
+    calqueDepartements = L.geoJSON(
+        {
+            type: 'FeatureCollection',
+            features: contoursAffiches(contours).features.filter(f => couleurs.has(f.properties.code))
+        } as never,
+        {
+            style: f => {
+                const d = couleurs.get((f?.properties as { code: string }).code);
+                const c = d?.couleur ?? '#999999';
+                const motif = d?.motif ?? 'plein';
+                return {
+                    renderer: rendu,
+                    fillColor: motif === 'plein' ? c : `url(#${idMotif(c, motif)})`,
+                    fillOpacity: opaciteDepartements(transparence.value),
+                    color: c,
+                    weight: 1
+                };
+            },
+            onEachFeature: (f, couche) => {
+                const dep = f.properties as { code: string; nom: string };
+                const c = couleurs.get(dep.code);
+                if (!c) return;
+                // Texte et non HTML : statut et noms de SAMU sont saisis dans l'application
+                const texte = document.createElement('span');
+                texte.textContent = `${dep.nom} : ${c.statut} (${c.samu.join(', ')})`;
+                couche.bindTooltip(texte, { sticky: true });
+            }
+        }
+    ).addTo(cible);
+    calqueDepartements.bringToBack();
+    dessinerEtiquettes(cible, contoursAffiches(contours), couleurs);
+}
+
+/** Lignes d'étiquette d'un département coloré : nom du département et/ou noms de ses SAMU */
+const lignesEtiquette = (nom: string, samu: string[]) => [
+    ...(nomsDepartements.value ? [nom] : []),
+    ...(nomsSamu.value ? samu : [])
+];
+
+/** Police des étiquettes de la carte (mesure de leur emprise pour les écarter les unes des autres) */
+const POLICE_ETIQUETTE = 'bold 11px sans-serif';
+const INTERLIGNE_ETIQUETTE = 11 * 1.15;
+let surZoomEtiquettes: (() => void) | null = null;
+
+function retirerEtiquettes() {
+    if (surZoomEtiquettes) carte?.off('zoomend', surZoomEtiquettes);
+    surZoomEtiquettes = null;
+    etiquettes?.remove();
+    etiquettes = null;
+}
+
+/** Noms sur la carte (légende : « Noms des SAMU », « Noms des départements »), écartés les uns des autres */
+function dessinerEtiquettes(cible: L.Map, contours: Contours, couleurs: Map<string, { samu: string[] }>) {
+    retirerEtiquettes();
+    if (!nomsSamu.value && !nomsDepartements.value) return;
+    const mesure = document.createElement('canvas').getContext('2d');
+    if (mesure) mesure.font = POLICE_ETIQUETTE;
+    const textes = new Map<string, string[]>();
+    const ancrages: { id: string; lat: number; lng: number }[] = [];
+    for (const f of contours.features) {
+        const c = couleurs.get(f.properties.code);
+        const lignes = c ? lignesEtiquette(f.properties.nom, c.samu) : [];
+        if (!lignes.length) continue;
+        const [lng, lat] = centreDe(f);
+        textes.set(f.properties.code, lignes);
+        ancrages.push({ id: f.properties.code, lat, lng });
+    }
+    /** Placement selon le zoom : les distances en pixels changent, pas les coordonnées */
+    const placer = () => {
+        etiquettes?.remove();
+        const groupe = L.layerGroup();
+        const aPlacer: EtiquetteAPlacer[] = ancrages.map(a => {
+            const lignes = textes.get(a.id) ?? [];
+            const p = cible.latLngToLayerPoint([a.lat, a.lng]);
+            return {
+                id: a.id,
+                x: p.x,
+                y: p.y,
+                largeur: Math.max(...lignes.map(t => mesure?.measureText(t).width ?? t.length * 6)),
+                hauteur: lignes.length * INTERLIGNE_ETIQUETTE
+            };
+        });
+        const placees = placerEtiquettes(aPlacer, Infinity, Infinity);
+        for (const p of placees) {
+            const ancre = ancrages.find(a => a.id === p.id);
+            if (!ancre) continue;
+            if (p.deplacee) {
+                // Trait de rappel vers le département
+                L.polyline([[ancre.lat, ancre.lng], cible.layerPointToLatLng([p.cx, p.cy])], {
+                    color: '#1e3a5f',
+                    weight: 1,
+                    interactive: false
+                }).addTo(groupe);
+                L.circleMarker([ancre.lat, ancre.lng], {
+                    radius: 2.5,
+                    color: '#1e3a5f',
+                    fillOpacity: 1,
+                    weight: 1,
+                    interactive: false
+                }).addTo(groupe);
+            }
+            const el = document.createElement('div');
+            el.className = 'ev-carte__etiquette-carte';
+            for (const t of textes.get(p.id) ?? []) {
+                const ligne = document.createElement('span');
+                ligne.textContent = t;
+                el.appendChild(ligne);
+            }
+            L.marker(cible.layerPointToLatLng([p.cx, p.cy]), {
+                icon: L.divIcon({ className: '', html: el.outerHTML, iconSize: [0, 0] }),
+                interactive: false,
+                keyboard: false
+            }).addTo(groupe);
+        }
+        etiquettes = groupe.addTo(cible);
+    };
+    surZoomEtiquettes = placer;
+    cible.on('zoomend', placer);
+    placer();
+}
+
+function changerNoms() {
+    memoriserCalques();
+    peindreDepartements();
+}
+
 async function dessinerDepartements() {
     const cible = carte;
     if (!cible) return;
-    retirerDepartements();
-    if (!departementsVisibles.value) return;
-    try {
-        const [contours, donnees] = await Promise.all([contoursDepartements(), apiDeploiements.carte()]);
-        if (carte !== cible || !departementsVisibles.value) return;
-        const couleurs = couleursDepartements(donnees.deployments, donnees.statuses, contours);
+    if (!departementsVisibles.value) {
         retirerDepartements();
-        const uniques = new Map([...couleurs.values()].map(c => [idMotif(c.couleur, c.motif), c]));
-        const rendu = renduAvecMotifs(cible, [...uniques.values()].map(c => svgMotif(c.couleur, c.motif)).join(''));
-        const parStatut = new Map<string, { statut: string; couleur: string; motif: string; departements: number }>();
-        for (const c of couleurs.values()) {
-            const e = parStatut.get(c.statut) ?? {
-                statut: c.statut,
-                couleur: c.couleur,
-                motif: c.motif,
-                departements: 0
-            };
-            e.departements++;
-            parStatut.set(c.statut, e);
-        }
-        legende.value = [...parStatut.values()];
-        calqueDepartements = L.geoJSON(
-            {
-                type: 'FeatureCollection',
-                features: contours.features.filter(f => couleurs.has(f.properties.code))
-            } as never,
-            {
-                style: f => {
-                    const d = couleurs.get((f?.properties as { code: string }).code);
-                    const c = d?.couleur ?? '#999999';
-                    const motif = d?.motif ?? 'plein';
-                    return {
-                        renderer: rendu,
-                        fillColor: motif === 'plein' ? c : `url(#${idMotif(c, motif)})`,
-                        fillOpacity: opaciteDepartements(transparence.value),
-                        color: c,
-                        weight: 1
-                    };
-                },
-                onEachFeature: (f, couche) => {
-                    const dep = f.properties as { code: string; nom: string };
-                    const c = couleurs.get(dep.code);
-                    if (!c) return;
-                    // Texte et non HTML : statut et noms de SAMU sont saisis dans l'application
-                    const texte = document.createElement('span');
-                    texte.textContent = `${dep.nom} : ${c.statut} (${c.samu.join(', ')})`;
-                    couche.bindTooltip(texte, { sticky: true });
-                }
-            }
-        ).addTo(cible);
-        calqueDepartements.bringToBack();
+        return;
+    }
+    try {
+        await chargerDonneesDepartements();
     } catch (e) {
         console.error('Erreur chargement des départements:', e);
         message.value = 'Les départements n’ont pas pu être chargés.';
+        return;
     }
+    if (carte === cible) peindreDepartements();
+}
+
+/** Clic sur la légende : le statut est masqué ou ré-affiché sur la carte */
+function basculerStatut(libelle: string) {
+    const s = new Set(statutsMasques.value);
+    if (!s.delete(libelle)) s.add(libelle);
+    statutsMasques.value = s;
+    memoriserCalques();
+    peindreDepartements();
 }
 
 /** Curseur : opacité mise à jour sans recharger */
@@ -291,7 +595,10 @@ async function afficher() {
     charge.value = true;
     dessiner(evenements.value, { cadrer: true });
     void dessinerDepartements();
-    setTimeout(() => carte?.invalidateSize(), 50);
+    setTimeout(() => {
+        carte?.invalidateSize();
+        if (franceSeule.value) cadrerFrance();
+    }, 50);
 }
 
 async function ouvrir() {
@@ -327,14 +634,9 @@ function reinitialiserFiltres() {
     if (carte) void afficher();
 }
 
-/** Redessine les pastilles (en lecture, seulement les événements déjà commencés) */
+/** Redessine les pastilles (pas pendant la lecture : la carte ne montre alors que les mises en service) */
 function redessiner() {
-    if (charge.value)
-        dessiner(
-            lecture.value.active && lecture.value.date
-                ? commencesA(evenements.value, lecture.value.date)
-                : evenements.value
-        );
+    if (charge.value && !lecture.value.active) dessiner(evenements.value);
 }
 
 function basculerExperts() {
@@ -393,20 +695,25 @@ const lecture = ref({
     enCours: false,
     position: 0,
     date: null as string | null,
-    visibles: 0
+    /** SAMU déjà « En service » à la date lue, et total sur la période */
+    visibles: 0,
+    total: 0
 });
 let plage: PlageLecture | null = null;
+/** Dates distinctes de mise en service de la période (lecture sans les périodes creuses) */
+let datesMes: string[] = [];
+/** Saute les périodes sans mise en service : chaque date de mise en service occupe la même part de la lecture */
+const compresser = ref(false);
 let minuterie: ReturnType<typeof setInterval> | null = null;
 let depart = 0;
 let base = 0;
-let comptes: Record<string, number> = {};
 
 const libelleLecture = computed(() =>
     lecture.value.enCours ? 'Pause' : lecture.value.position > 0 && lecture.value.position < 1 ? 'Reprendre' : 'Lecture'
 );
 const dateLecture = computed(() => (lecture.value.date ? dateFr(lecture.value.date) : '—'));
 const compteLecture = computed(() =>
-    lecture.value.date ? `${lecture.value.visibles} / ${evenements.value.length} événement(s)` : ''
+    lecture.value.date ? `${lecture.value.visibles} / ${lecture.value.total} mise(s) en service` : ''
 );
 
 function arreterMinuterie() {
@@ -417,26 +724,26 @@ function arreterMinuterie() {
 /** Retour à l'affichage normal, sans redessiner la carte */
 function reinitialiserLecture() {
     arreterMinuterie();
-    lecture.value = { active: false, enCours: false, position: 0, date: null, visibles: 0 };
+    lecture.value = { active: false, enCours: false, position: 0, date: null, visibles: 0, total: 0 };
     plage = null;
     base = 0;
-    comptes = {};
 }
 
-/** Image de la lecture à une position : événements déjà commencés, pastilles nouvelles animées */
+/** Image de la lecture à une position : départements des SAMU déjà mis en service à cette date */
 function montrer(position: number) {
-    if (!plage) return;
+    if (!plage || !donneesDeploiements) return;
     const p = Math.max(0, Math.min(1, position));
     lecture.value.position = p;
-    const date = dateALaPosition(plage, p);
+    const date = compresser.value ? dateALaPositionCompressee(datesMes, p) : dateALaPosition(plage, p);
     if (date === lecture.value.date) return;
     lecture.value.date = date;
-    const visibles = commencesA(evenements.value, date);
-    const nouveaux = compteParLieu(visibles);
-    const animes = new Set(Object.keys(nouveaux).filter(k => nouveaux[k] !== comptes[k]));
-    comptes = nouveaux;
-    lecture.value.visibles = visibles.length;
-    dessiner(visibles, { animes });
+    lecture.value.visibles = misesEnServiceA(
+        donneesDeploiements.deployments,
+        donneesDeploiements.statuses,
+        plage,
+        date
+    ).length;
+    peindreDepartements();
 }
 
 function image() {
@@ -448,10 +755,53 @@ function image() {
     }
 }
 
-/** Tous les événements visibles : cadrage sur leurs lieux */
-function cadrerTout() {
-    const points = evenements.value.map(e => [e.latitude, e.longitude] as L.LatLngTuple);
-    if (points.length && carte) carte.fitBounds(points, { padding: [40, 40], maxZoom: 13 });
+/** Cadrage sur la France métropolitaine (et les encarts d'outre-mer en mode « France seule ») */
+function cadrerFrance() {
+    carte?.fitBounds(
+        franceSeule.value
+            ? [
+                  [41.8, -13.8],
+                  [51.1, 9.6]
+              ]
+            : [
+                  [41.3, -5.2],
+                  [51.1, 9.6]
+              ],
+        { padding: [20, 20] }
+    );
+}
+
+/** Données et période de la lecture ; false (avec message) s'il n'y a aucune mise en service à animer */
+async function preparerLecture() {
+    if (!departementsVisibles.value) {
+        departementsVisibles.value = true;
+        memoriserCalques();
+    }
+    try {
+        await chargerDonneesDepartements();
+    } catch (e) {
+        console.error('Erreur chargement des départements:', e);
+        message.value = 'Les départements n’ont pas pu être chargés.';
+        return false;
+    }
+    const donnees = donneesDeploiements;
+    const p = donnees && plageMisesEnService(donnees.deployments, donnees.statuses);
+    if (!donnees || !p) {
+        message.value =
+            'Aucune mise en service à animer : renseignez des SAMU « En service » avec leur date de mise en service.';
+        return false;
+    }
+    plage = p;
+    datesMes = datesDeMisesEnService(donnees.deployments, donnees.statuses, p);
+    lecture.value.total = nbMisesEnService(donnees.deployments, donnees.statuses, p);
+    return true;
+}
+
+/** Début d'une lecture : la carte ne montre plus que les départements des SAMU mis en service */
+function demarrerAffichage() {
+    lecture.value.active = true;
+    dessiner([]);
+    cadrerFrance();
 }
 
 function pause() {
@@ -461,30 +811,29 @@ function pause() {
     arreterMinuterie();
 }
 
-function lireOuPause() {
+async function lireOuPause() {
     if (lecture.value.enCours) {
         pause();
         return;
     }
-    const p = plageLecture(evenements.value, debut.value, fin.value);
-    if (!p) {
-        message.value = 'Aucun événement à lire : renseignez une date de début (et de fin) ou affichez des événements.';
-        return;
-    }
-    plage = p;
+    if (!(await preparerLecture())) return;
     if (!lecture.value.active || lecture.value.position >= 1) {
         lecture.value.position = 0;
         lecture.value.date = null;
         base = 0;
-        comptes = {};
-        cadrerTout();
+        demarrerAffichage();
     } else base = lecture.value.position * duree.value;
-    lecture.value.active = true;
     lecture.value.enCours = true;
     depart = performance.now();
     arreterMinuterie();
     minuterie = setInterval(image, 120);
     image();
+}
+
+function compressionChangee() {
+    if (!lecture.value.active) return;
+    lecture.value.date = null;
+    montrer(lecture.value.position);
 }
 
 function vitesseChangee() {
@@ -497,14 +846,10 @@ function vitesseChangee() {
 }
 
 /** Curseur : position choisie (lecture initialisée au premier déplacement) */
-function curseur(valeur: number) {
+async function curseur(valeur: number) {
     if (!lecture.value.active) {
-        const p = plageLecture(evenements.value, debut.value, fin.value);
-        if (!p) return;
-        plage = p;
-        lecture.value.active = true;
-        comptes = {};
-        cadrerTout();
+        if (!(await preparerLecture())) return;
+        demarrerAffichage();
     }
     base = (valeur / 1000) * duree.value;
     depart = performance.now();
@@ -515,6 +860,278 @@ function curseur(valeur: number) {
 function arreter() {
     reinitialiserLecture();
     dessiner(evenements.value);
+    peindreDepartements();
+}
+
+// ---------- Export GIF ----------
+
+const exportGif = ref({ enCours: false, texte: '' });
+/** Titre inscrit en haut du GIF (facultatif) */
+const titreGif = ref('');
+/** Texte après « n / total » sous la date du GIF, et nom du fichier téléchargé */
+const libelleCompteurGif = ref(LIBELLE_COMPTEUR_GIF);
+const nomFichier = ref('');
+/** Tailles (largeur en pixels) et définitions (nombre d'images : plus d'images, animation plus fluide) proposées */
+const TAILLES_GIF = [
+    { valeur: 600, libelle: 'Petite (600 px)' },
+    { valeur: 800, libelle: 'Moyenne (800 px)' },
+    { valeur: 1200, libelle: 'Grande (1200 px)' },
+    { valeur: 1600, libelle: 'Très grande (1600 px)' }
+];
+const DEFINITIONS_GIF = [
+    { valeur: 20, libelle: 'Légère (20 images)' },
+    { valeur: 30, libelle: 'Standard (30 images)' },
+    { valeur: 60, libelle: 'Fine (60 images)' },
+    { valeur: 90, libelle: 'Très fine (90 images)' }
+];
+const tailleGif = ref(800);
+const definitionGif = ref(30);
+
+/** Couleurs du style du GIF : mer bleu pâle, France en relief léger (ombre portée), régions en trait bleu nuit */
+const STYLE_GIF = {
+    mer: '#dbeafe',
+    ombre: 'rgba(30,58,95,0.35)',
+    vide: '#f8fafc',
+    limite: '#ffffff',
+    region: '#1e3a5f'
+};
+
+/** Fond du GIF, identique quel que soit le fond de la carte affichée : mer, ombre portée, départements vides, régions */
+function fondDuGif(
+    largeur: number,
+    hauteur: number,
+    projeter: Projection,
+    contours: Contours,
+    regions: Contours | null
+) {
+    const c = document.createElement('canvas');
+    c.width = largeur;
+    c.height = hauteur;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas indisponible');
+    ctx.fillStyle = STYLE_GIF.mer;
+    ctx.fillRect(0, 0, largeur, hauteur);
+    const departements = contoursAffiches(contours);
+    const decalage = Math.max(2, Math.round(largeur * 0.005));
+    tracerContours(
+        ctx,
+        departements,
+        (lng, lat) => {
+            const [x = 0, y = 0] = projeter(lng, lat);
+            return [x + decalage, y + decalage * 1.25];
+        },
+        { trait: STYLE_GIF.ombre, epaisseur: 1, remplissage: STYLE_GIF.ombre }
+    );
+    tracerContours(ctx, departements, projeter, {
+        trait: STYLE_GIF.limite,
+        epaisseur: 1,
+        remplissage: STYLE_GIF.vide
+    });
+    if (regions) tracerContours(ctx, regions, projeter, { trait: STYLE_GIF.region, epaisseur: 1.8 });
+    if (franceSeule.value) {
+        ctx.save();
+        ctx.strokeStyle = STYLE_GIF.region;
+        ctx.setLineDash([6, 6]);
+        for (const e of cadresEncarts()) {
+            const [x0 = 0, y0 = 0] = projeter(e.gauche, e.haut);
+            const [x1 = 0, y1 = 0] = projeter(e.droite, e.bas);
+            ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+        }
+        ctx.restore();
+    }
+    return c;
+}
+
+/** Noms des départements et des SAMU écrits sur l'image (halo blanc pour rester lisibles sur le fond) */
+function etiquettesGif(
+    ctx: CanvasRenderingContext2D,
+    largeur: number,
+    hauteur: number,
+    contours: Contours,
+    projeter: Projection,
+    couleurs: Map<string, { samu: string[] }>
+) {
+    if (!nomsSamu.value && !nomsDepartements.value) return;
+    const taille = Math.max(10, Math.round(hauteur * 0.022));
+    ctx.save();
+    ctx.font = `bold ${taille}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    const interligne = taille * 1.15;
+    const aPlacer: EtiquetteAPlacer[] = [];
+    const textes = new Map<string, string[]>();
+    for (const f of contours.features) {
+        const c = couleurs.get(f.properties.code);
+        const lignes = c ? lignesEtiquette(f.properties.nom, c.samu) : [];
+        if (!lignes.length) continue;
+        const [x, y] = projeter(...centreDe(f));
+        textes.set(f.properties.code, lignes);
+        aPlacer.push({
+            id: f.properties.code,
+            x,
+            y,
+            largeur: Math.max(...lignes.map(t => ctx.measureText(t).width)),
+            hauteur: lignes.length * interligne
+        });
+    }
+    // Étiquettes écartées les unes des autres (un trait de rappel relie celles qui ont dû s'éloigner de leur département)
+    const placees = placerEtiquettes(aPlacer, largeur, hauteur);
+    for (const p of placees.filter(p => p.deplacee)) {
+        ctx.strokeStyle = '#1e3a5f';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.cx, p.cy);
+        ctx.stroke();
+        ctx.fillStyle = '#1e3a5f';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.lineWidth = 3;
+    for (const p of placees) {
+        const lignes = textes.get(p.id) ?? [];
+        lignes.forEach((t, i) => {
+            const yl = p.cy + (i - (lignes.length - 1) / 2) * interligne;
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+            ctx.strokeText(t, p.cx, yl);
+            ctx.fillStyle = '#1a237e';
+            ctx.fillText(t, p.cx, yl);
+        });
+    }
+    ctx.restore();
+}
+
+/** Hauteur du bandeau du titre (0 sans titre) : la carte est cadrée en dessous */
+function hauteurBandeauTitre(hauteur: number, titre: string) {
+    if (!titre) return 0;
+    const taille = Math.round(hauteur * 0.05);
+    return Math.round(taille * 1.1 + Math.round(taille * 0.5) * 1.6);
+}
+
+/** Titre (facultatif) en haut de l'image ; date et compteur dans le coin inférieur droit */
+function bandeauGif(
+    ctx: CanvasRenderingContext2D,
+    largeur: number,
+    hauteur: number,
+    date: string,
+    nb: number,
+    total: number,
+    titre: string,
+    libelle: string
+) {
+    const taille = Math.round(hauteur * 0.05);
+    const marge = Math.round(taille * 0.5);
+    ctx.save();
+    ctx.textBaseline = 'top';
+    if (titre) {
+        ctx.font = `bold ${Math.round(taille * 1.1)}px sans-serif`;
+        ctx.fillStyle = 'rgba(26,35,126,0.92)';
+        ctx.fillRect(0, 0, largeur, hauteurBandeauTitre(hauteur, titre));
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(titre, largeur / 2, marge * 0.8, largeur - marge * 2);
+    }
+    const texte1 = dateFr(date);
+    const texte2 = `${nb} / ${total} ${libelle}`;
+    const police2 = `${Math.round(taille * 0.6)}px sans-serif`;
+    ctx.font = `bold ${taille}px sans-serif`;
+    const l1 = ctx.measureText(texte1).width;
+    ctx.font = police2;
+    const l2 = ctx.measureText(texte2).width;
+    const largeurBoite = Math.max(l1, l2) + marge * 2;
+    const hauteurBoite = taille * 1.9 + marge * 1.5;
+    const gauche = largeur - marge - largeurBoite;
+    const haut = hauteur - marge - hauteurBoite;
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.fillRect(gauche, haut, largeurBoite, hauteurBoite);
+    ctx.textAlign = 'right';
+    ctx.font = `bold ${taille}px sans-serif`;
+    ctx.fillStyle = '#1a237e';
+    ctx.fillText(texte1, largeur - marge * 2, haut + marge * 0.6);
+    ctx.font = police2;
+    ctx.fillStyle = '#37474f';
+    ctx.fillText(texte2, largeur - marge * 2, haut + marge * 0.6 + taille * 1.2);
+    ctx.restore();
+}
+
+/** Animation des mises en service (GIF ou vidéo MP4), d'après la vue actuelle de la carte */
+async function exporterAnimation(format: 'gif' | 'mp4') {
+    const cible = carte;
+    if (!cible || exportGif.value.enCours) return;
+    pause();
+    const nomFormat = format === 'gif' ? 'GIF' : 'MP4';
+    exportGif.value = { enCours: true, texte: `${nomFormat} : préparation…` };
+    try {
+        if (!(await preparerLecture())) return;
+        const donnees = donneesDeploiements;
+        const contours = contoursCharges;
+        const periode = plage;
+        if (!donnees || !contours || !periode) return;
+        const regions = await contoursRegions();
+        const largeur = tailleGif.value;
+        const conteneurCarte = cible.getContainer();
+        const echelle = largeur / conteneurCarte.clientWidth;
+        const hauteur = pair(Math.round(conteneurCarte.clientHeight * echelle));
+        const titre = titreGif.value.trim();
+        // La carte est cadrée sous le bandeau du titre (sinon il recouvre le nord de la France)
+        const haut = hauteurBandeauTitre(hauteur, titre);
+        const reduction = (hauteur - haut) / hauteur;
+        const projeter: Projection = (lng, lat) => {
+            const pt = cible.latLngToContainerPoint([lat, lng]);
+            return [largeur / 2 + (pt.x * echelle - largeur / 2) * reduction, haut + pt.y * echelle * reduction];
+        };
+        const contoursDuGif = contoursAffiches(contours);
+        const base = fondDuGif(largeur, hauteur, projeter, contours, regions);
+        const dates = compresser.value
+            ? datesDesImagesCompressees(datesMes, definitionGif.value)
+            : datesDesImages(periode, definitionGif.value);
+        const generer = format === 'gif' ? genererGif : genererMp4;
+        const blob = await generer({
+            largeur,
+            hauteur,
+            images: dates.length,
+            delaiMs: 250,
+            pauseFinMs: 2000,
+            dessiner: (i, ctx) => {
+                const date = dates[i] ?? periode.fin;
+                const affiches = misesEnServiceA(donnees.deployments, donnees.statuses, periode, date);
+                ctx.drawImage(base, 0, 0);
+                const couleursDuJour = couleursDepartements(affiches, donnees.statuses, contours, statutsMasques.value);
+                for (const [code, c] of couleursDuJour)
+                    tracerContours(
+                        ctx,
+                        contoursDuGif,
+                        projeter,
+                        { trait: STYLE_GIF.limite, epaisseur: 1, remplissage: c.couleur },
+                        new Set([code])
+                    );
+                etiquettesGif(ctx, largeur, hauteur, contoursDuGif, projeter, couleursDuJour);
+                bandeauGif(
+                    ctx,
+                    largeur,
+                    hauteur,
+                    date,
+                    affiches.length,
+                    lecture.value.total,
+                    titre,
+                    libelleCompteurGif.value.trim() || LIBELLE_COMPTEUR_GIF
+                );
+            },
+            progression: (i, total) => (exportGif.value.texte = `${nomFormat} : image ${i} / ${total}`)
+        });
+        telecharger(blob, nomFichierGif(nomFichier.value, format));
+    } catch (e) {
+        console.error(`Erreur génération du ${nomFormat}:`, e);
+        message.value =
+            format === 'mp4' && !mp4Disponible()
+                ? 'L’export MP4 n’est pas disponible dans ce navigateur (utilisez un Chrome, Edge ou Safari récent).'
+                : `Le ${nomFormat} n’a pas pu être généré.`;
+    } finally {
+        exportGif.value = { enCours: false, texte: '' };
+    }
 }
 
 onBeforeUnmount(() => {
@@ -638,6 +1255,17 @@ onBeforeUnmount(() => {
                     📅 Événements : {{ lieuxVisibles ? 'ON' : 'OFF' }}
                 </button>
                 <button
+                    id="toggleFranceMapBtn"
+                    type="button"
+                    class="ev-carte__experts"
+                    :class="{ 'ev-carte__experts--masques': !franceSeule }"
+                    :aria-pressed="franceSeule"
+                    title="Carte de France seule, sans fond : la Corse reste en place, les départements d'outre-mer sont rapprochés"
+                    @click="basculerFranceSeule"
+                >
+                    🇫🇷 France seule : {{ franceSeule ? 'ON' : 'OFF' }}
+                </button>
+                <button
                     id="toggleDepartementsMapBtn"
                     type="button"
                     class="ev-carte__experts"
@@ -652,11 +1280,46 @@ onBeforeUnmount(() => {
                     class="ev-carte__legende"
                     data-testid="carte-legende"
                 >
-                    <span v-for="l in legende" :key="l.statut" class="ev-carte__legende-item">
+                    <button
+                        v-for="l in legende"
+                        :key="l.statut"
+                        type="button"
+                        class="ev-carte__legende-item"
+                        :class="{ 'ev-carte__legende-item--masque': l.masque }"
+                        :aria-pressed="!l.masque"
+                        :title="
+                            l.masque
+                                ? `Afficher les départements « ${l.statut} »`
+                                : `Masquer les départements « ${l.statut} »`
+                        "
+                        @click="basculerStatut(l.statut)"
+                    >
                         <span class="ev-carte__puce" :style="{ background: fondMotif(l.couleur, l.motif) }"></span>
                         {{ l.statut }} ({{ l.departements }})
-                    </span>
+                    </button>
+                    <label class="ev-carte__noms">
+                        <input v-model="nomsSamu" type="checkbox" @change="changerNoms" />
+                        Noms des SAMU
+                    </label>
+                    <label class="ev-carte__noms">
+                        <input v-model="nomsDepartements" type="checkbox" @change="changerNoms" />
+                        Noms des départements
+                    </label>
                 </span>
+                <label class="ev-carte__transparence">
+                    Fond de carte
+                    <select
+                        id="mapBaseSelect"
+                        v-model="fond"
+                        class="ev-carte__fond"
+                        aria-label="Fond de carte"
+                        :disabled="franceSeule"
+                        :title="franceSeule ? 'Désactivé : la carte de France seule n’a pas de fond' : ''"
+                        @change="changerFond"
+                    >
+                        <option v-for="f in FONDS" :key="f" :value="f">{{ FONDS_CARTE[f].libelle }}</option>
+                    </select>
+                </label>
                 <label v-if="departementsVisibles" class="ev-carte__transparence" data-testid="carte-calques">
                     Transparence
                     <input
@@ -680,7 +1343,7 @@ onBeforeUnmount(() => {
                 id="mapPlayBtn"
                 type="button"
                 class="ev-carte__lire"
-                title="Lire la progression des événements entre la date de début et la date de fin"
+                title="Lire la progression des mises en service des SAMU"
                 @click="lireOuPause"
             >
                 <svg v-if="lecture.enCours" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -703,6 +1366,12 @@ onBeforeUnmount(() => {
                     <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
             </button>
+            <label
+                class="ev-carte__vitesse ev-carte__compression"
+                title="Saute les périodes sans mise en service : chaque mise en service occupe la même part du défilement"
+                ><input v-model="compresser" type="checkbox" @change="compressionChangee" /> Sans les périodes
+                creuses</label
+            >
             <label class="ev-carte__vitesse"
                 >Durée du défilement
                 <select id="mapPlaySpeed" v-model.number="duree" @change="vitesseChangee">
@@ -721,6 +1390,70 @@ onBeforeUnmount(() => {
             />
             <span id="mapPlayDate" class="ev-carte__date">{{ dateLecture }}</span>
             <span id="mapPlayCount" class="ev-carte__compte">{{ compteLecture }}</span>
+            <details class="ev-carte__options-gif">
+                <summary>Options du GIF / MP4</summary>
+                <div class="ev-carte__options-gif-champs">
+                    <label
+                        >Titre (en haut de l'image)
+                        <input
+                            id="mapGifTitle"
+                            v-model="titreGif"
+                            type="text"
+                            maxlength="80"
+                            placeholder="Facultatif"
+                        />
+                    </label>
+                    <label
+                        >Taille
+                        <select id="mapGifSize" v-model.number="tailleGif">
+                            <option v-for="t in TAILLES_GIF" :key="t.valeur" :value="t.valeur">{{ t.libelle }}</option>
+                        </select>
+                    </label>
+                    <label
+                        >Définition (fluidité)
+                        <select id="mapGifDefinition" v-model.number="definitionGif">
+                            <option v-for="d in DEFINITIONS_GIF" :key="d.valeur" :value="d.valeur">
+                                {{ d.libelle }}
+                            </option>
+                        </select>
+                    </label>
+                    <label
+                        >Texte du compteur
+                        <input id="mapGifCounter" v-model="libelleCompteurGif" type="text" maxlength="40" />
+                    </label>
+                    <label
+                        >Nom du fichier
+                        <input
+                            id="mapGifFileName"
+                            v-model="nomFichier"
+                            type="text"
+                            maxlength="80"
+                            :placeholder="NOM_FICHIER_GIF"
+                        />
+                    </label>
+                </div>
+            </details>
+            <button
+                id="mapGifBtn"
+                type="button"
+                class="ev-carte__gif"
+                :disabled="exportGif.enCours"
+                title="Générer et télécharger l'animation des mises en service au format GIF"
+                @click="exporterAnimation('gif')"
+            >
+                🎞️ {{ exportGif.enCours ? exportGif.texte : 'GIF' }}
+            </button>
+            <button
+                v-if="mp4Disponible()"
+                id="mapMp4Btn"
+                type="button"
+                class="ev-carte__gif"
+                :disabled="exportGif.enCours"
+                title="Générer et télécharger l'animation des mises en service en vidéo MP4"
+                @click="exporterAnimation('mp4')"
+            >
+                🎬 {{ exportGif.enCours ? exportGif.texte : 'MP4' }}
+            </button>
         </div>
 
         <!-- Carte -->
@@ -886,8 +1619,22 @@ onBeforeUnmount(() => {
 }
 .ev-carte__actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: flex-end;
+}
+/* Boutons de la barre : même hauteur, libellé sur une seule ligne (icône à gauche du texte) */
+.ev-carte__actions > button,
+.ev-carte__actions > button:hover {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-sizing: border-box;
+    height: 38px;
+    padding: 0 14px;
+    white-space: nowrap;
+    line-height: 1;
 }
 .ev-carte__afficher,
 .ev-carte__afficher:hover {
@@ -929,10 +1676,104 @@ onBeforeUnmount(() => {
     font-size: 12px;
     color: #555;
 }
-.ev-carte__legende-item {
+.ev-carte__legende-item,
+.ev-carte__legende-item:hover {
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.ev-carte__legende-item:hover {
+    background: #eceff1;
+}
+.ev-carte__legende-item--masque {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+.ev-carte__noms {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+}
+.ev-carte__noms input,
+.ev-carte__compression input {
+    width: auto;
+    margin: 0;
+}
+.ev-carte__options-gif {
+    position: relative;
+    font-size: 12px;
+    color: #555;
+}
+.ev-carte__options-gif summary {
+    cursor: pointer;
+    padding: 6px 8px;
+}
+.ev-carte__options-gif-champs {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 280px;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #9fb3c1;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.ev-carte__options-gif-champs label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.ev-carte__etiquette-carte {
+    /* Le repère Leaflet fait 0 × 0 : sans largeur propre, l'étiquette aurait une emprise vide (invisible pour les tests) */
+    width: max-content;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    pointer-events: none;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.15;
+    color: #1a237e;
+    text-shadow:
+        0 0 3px #fff,
+        0 0 3px #fff,
+        0 0 3px #fff;
+}
+.ev-carte__fond {
+    width: auto;
+    padding: 4px 6px;
+    font-size: 12px;
+}
+.ev-carte__gif,
+.ev-carte__gif:hover {
+    background: #00897b;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.ev-carte__gif:disabled {
+    background: #90a4ae;
+    cursor: progress;
 }
 .ev-carte__puce {
     width: 14px;

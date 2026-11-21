@@ -84,6 +84,10 @@ describe('en-têtes de sécurité', () => {
             expect(csp, url).toMatch(/frame-ancestors 'self'/);
             expect(csp, url).toMatch(/object-src 'none'/);
             expect(csp, url).toMatch(/connect-src 'self' https:\/\/nominatim\.openstreetmap\.org/);
+            // Images : tuiles OpenStreetMap (plan) et IGN (satellite), aucun autre hôte
+            expect(csp, url).toMatch(
+                /img-src 'self' data: blob: https:\/\/\*\.tile\.openstreetmap\.org https:\/\/data\.geopf\.fr;/
+            );
             // Application en HTTP en test : pas de HSTS ni de passage forcé en HTTPS
             expect(headers.get('strict-transport-security'), url).toBeNull();
             expect(csp, url).not.toMatch(/upgrade-insecure-requests/);

@@ -1,6 +1,6 @@
 {
   "name": "gantt-planification",
-  "version": "3.4.0",
+  "version": "3.6.0",
   "description": "Gestionnaire de ressources et planification GANTT",
   "private": true,
   "type": "module",

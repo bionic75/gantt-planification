@@ -158,10 +158,10 @@ export function propositions(
     return [...internes, ...externes.slice(0, 4)];
 }
 
-// ── Lecture chronologique ────────────────────────────────────────────────────
+// ── Lecture chronologique (période et dates) ─────────────────────────────────
 
-const jour = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86400000;
-const isoDuJour = (d: number) => new Date(d * 86400000).toISOString().slice(0, 10);
+export const jour = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86400000;
+export const isoDuJour = (d: number) => new Date(d * 86400000).toISOString().slice(0, 10);
 
 export interface PlageLecture {
     debut: string;
@@ -169,32 +169,6 @@ export interface PlageLecture {
     jours: number;
 }
 
-/** Période lue : dates choisies, à défaut premier début et dernière fin des événements ; null si rien à lire */
-export function plageLecture(events: EvenementCarte[], debut: string, fin: string): PlageLecture | null {
-    const debuts = events
-        .map(e => e.start_date)
-        .filter(Boolean)
-        .sort();
-    const fins = events
-        .map(e => e.end_date || e.start_date)
-        .filter(Boolean)
-        .sort();
-    const d = debut || debuts[0];
-    const f = fin || fins[fins.length - 1];
-    if (!d || !f || f < d) return null;
-    return { debut: d, fin: f, jours: Math.max(1, jour(f) - jour(d)) };
-}
-
 /** Date atteinte à la position (0 à 1) de la lecture */
 export const dateALaPosition = (p: PlageLecture, position: number) =>
     isoDuJour(jour(p.debut) + Math.floor(Math.max(0, Math.min(1, position)) * p.jours));
-
-/** Événements déjà commencés à cette date (apparition progressive) */
-export const commencesA = (events: EvenementCarte[], date: string) => events.filter(e => (e.start_date || '') <= date);
-
-/** Nombre d'événements par lieu (pastilles qui changent : animation d'apparition) */
-export function compteParLieu(events: EvenementCarte[]) {
-    const c: Record<string, number> = {};
-    for (const e of events) c[e.location_id] = (c[e.location_id] || 0) + 1;
-    return c;
-}
