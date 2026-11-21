@@ -84,15 +84,15 @@ export async function genererGif(options: {
 export const NOM_FICHIER_GIF = 'cartographie-mises-en-service';
 export const LIBELLE_COMPTEUR_GIF = 'mise(s) en service';
 
-/** Nom de fichier saisi, rendu valide : caractères interdits remplacés par « - », extension .gif ajoutée */
-export function nomFichierGif(saisie: string) {
+/** Nom de fichier saisi, rendu valide : caractères interdits remplacés par « - », extension (.gif ou .mp4) ajoutée */
+export function nomFichierGif(saisie: string, extension: 'gif' | 'mp4' = 'gif') {
     const nom = saisie
         .trim()
-        .replace(/\.gif$/i, '')
+        .replace(/\.(gif|mp4)$/i, '')
         .replace(/[\\/:*?"<>|\s]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .slice(0, 80);
-    return `${nom || NOM_FICHIER_GIF}.gif`;
+    return `${nom || NOM_FICHIER_GIF}.${extension}`;
 }
 
 /** Télécharge un fichier généré dans le navigateur */

@@ -17,4 +17,10 @@ describe('nomFichierGif', () => {
     it('limite la longueur', () => {
         expect(nomFichierGif('x'.repeat(300)).length).toBeLessThanOrEqual(84);
     });
+
+    it('extension mp4 : remplace .gif ou .mp4 saisi', () => {
+        expect(nomFichierGif('suivi.gif', 'mp4')).toBe('suivi.mp4');
+        expect(nomFichierGif('suivi.mp4', 'mp4')).toBe('suivi.mp4');
+        expect(nomFichierGif('', 'mp4')).toBe(`${NOM_FICHIER_GIF}.mp4`);
+    });
 });

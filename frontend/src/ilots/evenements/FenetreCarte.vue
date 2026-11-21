@@ -26,6 +26,7 @@ import {
 import { dateFr } from './calculs';
 import { ecrireEtat, FONDS, lireEtat, opaciteDepartements, stockageNavigateur, type Fond } from './calques';
 import { centreDe, couleursDepartements, type Contours } from './departements';
+import { genererMp4, mp4Disponible, pair } from './mp4';
 import { placerEtiquettes, type EtiquetteAPlacer } from './etiquettes';
 import { ENCARTS, rapprocherOutreMer } from './outre-mer';
 import {
@@ -870,8 +871,21 @@ const titreGif = ref('');
 /** Texte après « n / total » sous la date du GIF, et nom du fichier téléchargé */
 const libelleCompteurGif = ref(LIBELLE_COMPTEUR_GIF);
 const nomFichier = ref('');
-const IMAGES_GIF = 30;
-const LARGEUR_GIF = 800;
+/** Tailles (largeur en pixels) et définitions (nombre d'images : plus d'images, animation plus fluide) proposées */
+const TAILLES_GIF = [
+    { valeur: 600, libelle: 'Petite (600 px)' },
+    { valeur: 800, libelle: 'Moyenne (800 px)' },
+    { valeur: 1200, libelle: 'Grande (1200 px)' },
+    { valeur: 1600, libelle: 'Très grande (1600 px)' }
+];
+const DEFINITIONS_GIF = [
+    { valeur: 20, libelle: 'Légère (20 images)' },
+    { valeur: 30, libelle: 'Standard (30 images)' },
+    { valeur: 60, libelle: 'Fine (60 images)' },
+    { valeur: 90, libelle: 'Très fine (90 images)' }
+];
+const tailleGif = ref(800);
+const definitionGif = ref(30);
 
 /** Couleurs du style du GIF : mer bleu pâle, France en relief léger (ombre portée), régions en trait bleu nuit */
 const STYLE_GIF = {
@@ -990,7 +1004,14 @@ function etiquettesGif(
     ctx.restore();
 }
 
-/** Titre (facultatif) en haut de l'image, date et compteur en haut à gauche */
+/** Hauteur du bandeau du titre (0 sans titre) : la carte est cadrée en dessous */
+function hauteurBandeauTitre(hauteur: number, titre: string) {
+    if (!titre) return 0;
+    const taille = Math.round(hauteur * 0.05);
+    return Math.round(taille * 1.1 + Math.round(taille * 0.5) * 1.6);
+}
+
+/** Titre (facultatif) en haut de l'image ; date et compteur dans le coin inférieur droit */
 function bandeauGif(
     ctx: CanvasRenderingContext2D,
     largeur: number,
@@ -1005,39 +1026,44 @@ function bandeauGif(
     const marge = Math.round(taille * 0.5);
     ctx.save();
     ctx.textBaseline = 'top';
-    let haut = marge;
     if (titre) {
-        const tailleTitre = Math.round(taille * 1.1);
-        ctx.font = `bold ${tailleTitre}px sans-serif`;
-        const bandeau = tailleTitre + marge * 1.6;
+        ctx.font = `bold ${Math.round(taille * 1.1)}px sans-serif`;
         ctx.fillStyle = 'rgba(26,35,126,0.92)';
-        ctx.fillRect(0, 0, largeur, bandeau);
+        ctx.fillRect(0, 0, largeur, hauteurBandeauTitre(hauteur, titre));
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.fillText(titre, largeur / 2, marge * 0.8, largeur - marge * 2);
-        ctx.textAlign = 'left';
-        haut = bandeau + marge;
     }
-    ctx.font = `bold ${taille}px sans-serif`;
     const texte1 = dateFr(date);
     const texte2 = `${nb} / ${total} ${libelle}`;
-    const largeurBandeau = Math.max(ctx.measureText(texte1).width, ctx.measureText(texte2).width * 0.6) + marge * 2;
+    const police2 = `${Math.round(taille * 0.6)}px sans-serif`;
+    ctx.font = `bold ${taille}px sans-serif`;
+    const l1 = ctx.measureText(texte1).width;
+    ctx.font = police2;
+    const l2 = ctx.measureText(texte2).width;
+    const largeurBoite = Math.max(l1, l2) + marge * 2;
+    const hauteurBoite = taille * 1.9 + marge * 1.5;
+    const gauche = largeur - marge - largeurBoite;
+    const haut = hauteur - marge - hauteurBoite;
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    ctx.fillRect(marge, haut, largeurBandeau, taille * 2.1 + marge);
+    ctx.fillRect(gauche, haut, largeurBoite, hauteurBoite);
+    ctx.textAlign = 'right';
+    ctx.font = `bold ${taille}px sans-serif`;
     ctx.fillStyle = '#1a237e';
-    ctx.fillText(texte1, marge * 2, haut + marge * 0.5);
-    ctx.font = `${Math.round(taille * 0.6)}px sans-serif`;
+    ctx.fillText(texte1, largeur - marge * 2, haut + marge * 0.6);
+    ctx.font = police2;
     ctx.fillStyle = '#37474f';
-    ctx.fillText(texte2, marge * 2, haut + marge * 0.5 + taille * 1.2);
+    ctx.fillText(texte2, largeur - marge * 2, haut + marge * 0.6 + taille * 1.2);
     ctx.restore();
 }
 
-/** GIF animé de la progression des mises en service, d'après la vue actuelle de la carte */
-async function exporterGif() {
+/** Animation des mises en service (GIF ou vidéo MP4), d'après la vue actuelle de la carte */
+async function exporterAnimation(format: 'gif' | 'mp4') {
     const cible = carte;
     if (!cible || exportGif.value.enCours) return;
     pause();
-    exportGif.value = { enCours: true, texte: 'GIF : préparation…' };
+    const nomFormat = format === 'gif' ? 'GIF' : 'MP4';
+    exportGif.value = { enCours: true, texte: `${nomFormat} : préparation…` };
     try {
         if (!(await preparerLecture())) return;
         const donnees = donneesDeploiements;
@@ -1045,20 +1071,26 @@ async function exporterGif() {
         const periode = plage;
         if (!donnees || !contours || !periode) return;
         const regions = await contoursRegions();
+        const largeur = tailleGif.value;
         const conteneurCarte = cible.getContainer();
-        const echelle = LARGEUR_GIF / conteneurCarte.clientWidth;
-        const hauteur = Math.round(conteneurCarte.clientHeight * echelle);
+        const echelle = largeur / conteneurCarte.clientWidth;
+        const hauteur = pair(Math.round(conteneurCarte.clientHeight * echelle));
+        const titre = titreGif.value.trim();
+        // La carte est cadrée sous le bandeau du titre (sinon il recouvre le nord de la France)
+        const haut = hauteurBandeauTitre(hauteur, titre);
+        const reduction = (hauteur - haut) / hauteur;
         const projeter: Projection = (lng, lat) => {
             const pt = cible.latLngToContainerPoint([lat, lng]);
-            return [pt.x * echelle, pt.y * echelle];
+            return [largeur / 2 + (pt.x * echelle - largeur / 2) * reduction, haut + pt.y * echelle * reduction];
         };
         const contoursDuGif = contoursAffiches(contours);
-        const base = fondDuGif(LARGEUR_GIF, hauteur, projeter, contours, regions);
+        const base = fondDuGif(largeur, hauteur, projeter, contours, regions);
         const dates = compresser.value
-            ? datesDesImagesCompressees(datesMes, IMAGES_GIF)
-            : datesDesImages(periode, IMAGES_GIF);
-        const blob = await genererGif({
-            largeur: LARGEUR_GIF,
+            ? datesDesImagesCompressees(datesMes, definitionGif.value)
+            : datesDesImages(periode, definitionGif.value);
+        const generer = format === 'gif' ? genererGif : genererMp4;
+        const blob = await generer({
+            largeur,
             hauteur,
             images: dates.length,
             delaiMs: 250,
@@ -1076,24 +1108,27 @@ async function exporterGif() {
                         { trait: STYLE_GIF.limite, epaisseur: 1, remplissage: c.couleur },
                         new Set([code])
                     );
-                etiquettesGif(ctx, LARGEUR_GIF, hauteur, contoursDuGif, projeter, couleursDuJour);
+                etiquettesGif(ctx, largeur, hauteur, contoursDuGif, projeter, couleursDuJour);
                 bandeauGif(
                     ctx,
-                    LARGEUR_GIF,
+                    largeur,
                     hauteur,
                     date,
                     affiches.length,
                     lecture.value.total,
-                    titreGif.value.trim(),
+                    titre,
                     libelleCompteurGif.value.trim() || LIBELLE_COMPTEUR_GIF
                 );
             },
-            progression: (i, total) => (exportGif.value.texte = `GIF : image ${i} / ${total}`)
+            progression: (i, total) => (exportGif.value.texte = `${nomFormat} : image ${i} / ${total}`)
         });
-        telecharger(blob, nomFichierGif(nomFichier.value));
+        telecharger(blob, nomFichierGif(nomFichier.value, format));
     } catch (e) {
-        console.error('Erreur génération du GIF:', e);
-        message.value = 'Le GIF n’a pas pu être généré.';
+        console.error(`Erreur génération du ${nomFormat}:`, e);
+        message.value =
+            format === 'mp4' && !mp4Disponible()
+                ? 'L’export MP4 n’est pas disponible dans ce navigateur (utilisez un Chrome, Edge ou Safari récent).'
+                : `Le ${nomFormat} n’a pas pu être généré.`;
     } finally {
         exportGif.value = { enCours: false, texte: '' };
     }
@@ -1356,7 +1391,7 @@ onBeforeUnmount(() => {
             <span id="mapPlayDate" class="ev-carte__date">{{ dateLecture }}</span>
             <span id="mapPlayCount" class="ev-carte__compte">{{ compteLecture }}</span>
             <details class="ev-carte__options-gif">
-                <summary>Options du GIF</summary>
+                <summary>Options du GIF / MP4</summary>
                 <div class="ev-carte__options-gif-champs">
                     <label
                         >Titre (en haut de l'image)
@@ -1367,6 +1402,20 @@ onBeforeUnmount(() => {
                             maxlength="80"
                             placeholder="Facultatif"
                         />
+                    </label>
+                    <label
+                        >Taille
+                        <select id="mapGifSize" v-model.number="tailleGif">
+                            <option v-for="t in TAILLES_GIF" :key="t.valeur" :value="t.valeur">{{ t.libelle }}</option>
+                        </select>
+                    </label>
+                    <label
+                        >Définition (fluidité)
+                        <select id="mapGifDefinition" v-model.number="definitionGif">
+                            <option v-for="d in DEFINITIONS_GIF" :key="d.valeur" :value="d.valeur">
+                                {{ d.libelle }}
+                            </option>
+                        </select>
                     </label>
                     <label
                         >Texte du compteur
@@ -1390,9 +1439,20 @@ onBeforeUnmount(() => {
                 class="ev-carte__gif"
                 :disabled="exportGif.enCours"
                 title="Générer et télécharger l'animation des mises en service au format GIF"
-                @click="exporterGif"
+                @click="exporterAnimation('gif')"
             >
                 🎞️ {{ exportGif.enCours ? exportGif.texte : 'GIF' }}
+            </button>
+            <button
+                v-if="mp4Disponible()"
+                id="mapMp4Btn"
+                type="button"
+                class="ev-carte__gif"
+                :disabled="exportGif.enCours"
+                title="Générer et télécharger l'animation des mises en service en vidéo MP4"
+                @click="exporterAnimation('mp4')"
+            >
+                🎬 {{ exportGif.enCours ? exportGif.texte : 'MP4' }}
             </button>
         </div>
 
