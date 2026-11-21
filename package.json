@@ -1,6 +1,6 @@
 {
   "name": "gantt-planification",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "description": "Gestionnaire de ressources et planification GANTT",
   "private": true,
   "type": "module",
@@ -43,7 +43,8 @@
     "node": ">=22.22.2"
   },
   "overrides": {
-    "image-size": "^2.0.4"
+    "image-size": "^2.0.4",
+    "effect": "^3.22.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
