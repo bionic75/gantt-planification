@@ -14,6 +14,7 @@ import {
     newDatabaseName,
     TEST_PROVIDER
 } from './helpers/test-db.ts';
+import { nettoyerOrphelins, supprimerDossiersPerimes, tuerServeursDeLaSerie } from './helpers/processus.ts';
 
 declare module 'vitest' {
     // Valeurs transmises aux serveurs de test (helpers/server.ts, inject)
@@ -32,7 +33,23 @@ const migrate = (env: Record<string, string>) =>
         stdio: 'pipe'
     });
 
-export default async function setup({ provide }: TestProject) {
+/** Serveurs et répertoires de test : aucun ne survit à la série (voir helpers/processus.ts) */
+export default async function setup(project: TestProject) {
+    nettoyerOrphelins();
+    // Hérité par les processus de test : permet de tuer les serveurs de cette série seulement
+    process.env.GANTT_TEST_SERIE = String(process.pid);
+    const fin = await preparerBase(project);
+    return async () => {
+        try {
+            await fin?.();
+        } finally {
+            tuerServeursDeLaSerie();
+            supprimerDossiersPerimes();
+        }
+    };
+}
+
+async function preparerBase({ provide }: TestProject) {
     if (TEST_PROVIDER === 'postgresql') {
         const name = newDatabaseName('gantt_tpl');
         await createDatabase(name);

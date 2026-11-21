@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from './client.ts';
 import type { Identifiants } from './fixtures.ts';
+import { enregistrerServeur } from './processus.ts';
 import { createDatabase, databaseEnv, dropDatabase, isSqlite, newDatabaseName, TEST_PROVIDER } from './test-db.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -120,6 +121,10 @@ const ADMIN_INITIAL = { username: ADMIN.username, password: `${ADMIN.password}-i
 export interface TestServer {
     baseUrl: string;
     appUrl: string;
+    /** Identifiant du processus serveur */
+    readonly pid: number | undefined;
+    /** Ferme les tubes de sortie côté lanceur (simule un lanceur disparu) */
+    closeOutputs(): void;
     /** Journal (sorties standard et d'erreur) du processus serveur */
     readonly logs: string;
     client: () => ReturnType<typeof createClient>;
@@ -209,6 +214,8 @@ async function bootServer(
             DB_PATH: path.join(workDir, 'data'),
             ...databaseEnv(databaseOf(workDir)),
             APP_URL: APP_URL,
+            // Le serveur s'arrête seul si le lanceur de tests disparaît (server.ts)
+            GANTT_TEST_PARENT_WATCH: '1',
             SESSION_SECRET: 'test-secret-'.padEnd(48, 'x'),
             // API Asana simulée (tests d'import et de rafraîchissement)
             ASANA_API_BASE: process.env.TEST_ASANA_API_BASE,
@@ -217,12 +224,18 @@ async function bootServer(
         }),
         stdio: ['ignore', 'pipe', 'pipe']
     });
+    enregistrerServeur(proc);
     proc.stdout.on('data', d => (logs += d));
     proc.stderr.on('data', d => (logs += d));
 
     const server: TestServer = {
         baseUrl,
         appUrl: APP_URL,
+        pid: proc.pid,
+        closeOutputs() {
+            proc.stdout.destroy();
+            proc.stderr.destroy();
+        },
         get logs() {
             return logs;
         },
