@@ -70,6 +70,15 @@ function repertoireDe(pid: number) {
     }
 }
 
+/** Processus en cours (ps portable macOS / Linux) ; liste vide si ps est indisponible : le nettoyage reste facultatif */
+function listeProcessus() {
+    try {
+        return execFileSync('ps', ['-A', '-o', 'pid=,ppid=,command='], { encoding: 'utf8' }).split('\n');
+    } catch {
+        return [];
+    }
+}
+
 /**
  * Au démarrage d'une série : tue les serveurs de tests précédents devenus orphelins, c'est-à-dire parent launchd/init
  * (PPID 1), « server.ts » du projet et répertoire de travail gantt-test-* dans os.tmpdir(). Aucun autre processus n'est
@@ -79,7 +88,7 @@ export function nettoyerOrphelins() {
     if (!POSIX) return;
     const racine = fs.realpathSync(os.tmpdir());
     const serveur = path.resolve(import.meta.dirname, '../../server.ts');
-    const lignes = execFileSync('ps', ['-Awwxo', 'pid=,ppid=,command='], { encoding: 'utf8' }).split('\n');
+    const lignes = listeProcessus();
     for (const ligne of lignes) {
         const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(ligne);
         if (!m || m[2] !== '1' || !m[3].endsWith(` ${serveur}`)) continue;
