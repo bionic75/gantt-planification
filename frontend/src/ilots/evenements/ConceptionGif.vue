@@ -467,6 +467,20 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                             {{ a.libelle }}</label
                         >
                     </div>
+                    <div class="conception__couleurs">
+                        <label
+                            >Écriture
+                            <input v-model="mep.titre.couleurTexte" type="color" aria-label="Couleur de l'écriture" />
+                        </label>
+                        <label
+                            >Fond
+                            <input v-model="mep.titre.couleurFond" type="color" aria-label="Couleur du fond" />
+                        </label>
+                    </div>
+                    <label
+                        >Opacité du fond : {{ Math.round(mep.titre.opaciteFond * 100) }} %
+                        <input v-model.number="mep.titre.opaciteFond" type="range" min="0" max="1" step="0.05" />
+                    </label>
                     <label
                         >Taille : {{ mep.titre.taille }}
                         <input
@@ -519,6 +533,20 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                             {{ a.libelle }}</label
                         >
                     </div>
+                    <div class="conception__couleurs">
+                        <label
+                            >Écriture
+                            <input v-model="mep.legende.couleurTexte" type="color" aria-label="Couleur de l'écriture" />
+                        </label>
+                        <label
+                            >Fond
+                            <input v-model="mep.legende.couleurFond" type="color" aria-label="Couleur du fond" />
+                        </label>
+                    </div>
+                    <label
+                        >Opacité du fond : {{ Math.round(mep.legende.opaciteFond * 100) }} %
+                        <input v-model.number="mep.legende.opaciteFond" type="range" min="0" max="1" step="0.05" />
+                    </label>
                     <label
                         >Taille : {{ mep.legende.taille }}
                         <input
@@ -544,6 +572,24 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                             maxlength="40"
                             placeholder="mise(s) en service"
                         />
+                    </label>
+                    <div class="conception__couleurs">
+                        <label
+                            >Écriture
+                            <input
+                                v-model="mep.compteur.couleurTexte"
+                                type="color"
+                                aria-label="Couleur de l'écriture"
+                            />
+                        </label>
+                        <label
+                            >Fond
+                            <input v-model="mep.compteur.couleurFond" type="color" aria-label="Couleur du fond" />
+                        </label>
+                    </div>
+                    <label
+                        >Opacité du fond : {{ Math.round(mep.compteur.opaciteFond * 100) }} %
+                        <input v-model.number="mep.compteur.opaciteFond" type="range" min="0" max="1" step="0.05" />
                     </label>
                     <label
                         >Taille : {{ mep.compteur.taille }}
@@ -586,6 +632,15 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                         />
                     </label>
                     <p v-if="messageLogo" role="alert" class="conception__erreur">{{ messageLogo }}</p>
+                    <label
+                        >Couleur du fond de l'image
+                        <input
+                            id="conceptionFond"
+                            v-model="mep.couleurFond"
+                            type="color"
+                            aria-label="Couleur du fond de l'image"
+                        />
+                    </label>
                     <label
                         >Zoom de la carte : {{ Math.round(mep.carte.zoom * 100) }} %
                         <input
@@ -710,6 +765,16 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     align-items: end;
+}
+.conception__couleurs {
+    display: flex;
+    gap: 14px;
+}
+.conception__groupe input[type='color'] {
+    width: 56px;
+    height: 30px;
+    padding: 1px;
+    cursor: pointer;
 }
 .conception__bascules,
 .conception__alignements {

@@ -2,7 +2,9 @@
 // chaque image exportée (ce que l'on voit est ce que l'on obtient).
 import {
     BORNES,
+    avecOpacite,
     borner,
+    couleurValide,
     dimensionsLogo,
     lignesLegende,
     police,
@@ -84,9 +86,9 @@ function titre(ctx: Contexte, largeur: number, hauteur: number, m: MiseEnPage, e
     const maxTexte = largeur * 0.94 - pad * 2;
     const l = Math.min(Math.max(...lignes.map(ligne => ctx.measureText(ligne).width)), maxTexte);
     const h = (lignes.length - 1) * pas + taille + pad * 2;
-    ctx.fillStyle = 'rgba(26,35,126,0.92)';
+    ctx.fillStyle = avecOpacite(couleurValide(t.couleurFond, '#1a237e'), t.opaciteFond);
     ctx.fillRect(x, y, l + pad * 2, h);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = couleurValide(t.couleurTexte, '#ffffff');
     lignes.forEach((ligne, i) => {
         const w = Math.min(ctx.measureText(ligne).width, l);
         ctx.fillText(ligne, departLigne(t.alignement, x + pad, l, w), y + pad + taille / 2 + i * pas, l);
@@ -122,8 +124,9 @@ function legende(
     const h = lignes.length * pas + pad * 2 - (pas - taille);
     const x = lg.x * largeur;
     const y = lg.y * hauteur;
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillStyle = avecOpacite(couleurValide(lg.couleurFond, '#ffffff'), lg.opaciteFond);
     ctx.fillRect(x, y, l, h);
+    const texteCouleur = couleurValide(lg.couleurTexte, '#263238');
     lignes.forEach((ligne, i) => {
         const yl = y + pad + i * pas + taille / 2;
         const debut = departLigne(lg.alignement, x + pad, interieur, Math.min(largeurLigne(ligne), interieur));
@@ -134,7 +137,7 @@ function legende(
             ctx.lineWidth = 1;
             ctx.strokeRect(debut, yl - puce / 2, puce, puce);
         }
-        ctx.fillStyle = '#263238';
+        ctx.fillStyle = texteCouleur;
         const decalage = ligne.couleur ? puce + ecartPuce : 0;
         ctx.fillText(ligne.texte, debut + decalage, yl, Math.max(10, interieur - decalage));
     });
@@ -161,13 +164,15 @@ function compteur(
     const h = taille * 1.9 + marge * 1.5;
     const x = m.compteur.x * largeur;
     const y = m.compteur.y * hauteur;
-    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    const c = m.compteur;
+    ctx.fillStyle = avecOpacite(couleurValide(c.couleurFond, '#ffffff'), c.opaciteFond);
     ctx.fillRect(x, y, l, h);
+    const texteCouleur = couleurValide(c.couleurTexte, '#1a237e');
     ctx.font = `bold ${Math.round(taille)}px sans-serif`;
-    ctx.fillStyle = '#1a237e';
+    ctx.fillStyle = texteCouleur;
     ctx.fillText(d.compteur.date, x + l - marge, y + marge * 0.6);
     ctx.font = `${Math.round(taille * 0.6)}px sans-serif`;
-    ctx.fillStyle = '#37474f';
+    ctx.fillStyle = texteCouleur;
     ctx.fillText(d.compteur.detail, x + l - marge, y + marge * 0.6 + taille * 1.2);
     return { id: 'compteur', x, y, largeur: l, hauteur: h };
 }

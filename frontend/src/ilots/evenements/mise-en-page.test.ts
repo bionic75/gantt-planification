@@ -5,6 +5,8 @@ import {
     dimensionsLogo,
     elementEn,
     ajusterTaille,
+    avecOpacite,
+    couleurValide,
     cadrerPoint,
     centreCadre,
     zoomAutour,
@@ -39,6 +41,21 @@ describe('mise en page du GIF / MP4', () => {
         expect(dimensionsLogo(logo(1000, 100, 60), 800)).toEqual({ largeur: 320, hauteur: 32 });
     });
 
+    it('couleurs : #rrggbb accepté (casse ignorée), le reste ramené à la valeur par défaut', () => {
+        expect(couleurValide('#1A237e', '#000000')).toBe('#1a237e');
+        expect(couleurValide('red', '#000000')).toBe('#000000');
+        expect(couleurValide('#12345', '#000000')).toBe('#000000');
+        expect(couleurValide('url(x)', '#ffffff')).toBe('#ffffff');
+        expect(couleurValide(undefined as unknown as string, '#ffffff')).toBe('#ffffff');
+    });
+
+    it('opacité : couleur rgba, opacité bornée entre 0 et 1', () => {
+        expect(avecOpacite('#1a237e', 0.5)).toBe('rgba(26,35,126,0.5)');
+        expect(avecOpacite('#ffffff', 2)).toBe('rgba(255,255,255,1)');
+        expect(avecOpacite('#ffffff', -1)).toBe('rgba(255,255,255,0)');
+        expect(avecOpacite('n’importe quoi', 0.4)).toBe('rgba(0,0,0,0.4)');
+    });
+
     it('polices : au moins une quinzaine, valeurs uniques, libellés renseignés', () => {
         expect(POLICES_GIF.length).toBeGreaterThanOrEqual(15);
         expect(new Set(POLICES_GIF.map(p => p.valeur)).size).toBe(POLICES_GIF.length);
@@ -65,6 +82,11 @@ describe('mise en page du GIF / MP4', () => {
         expect(m.titre).toMatchObject({ alignement: 'center', gras: true, italique: false });
         expect(m.legende).toMatchObject({ alignement: 'left', gras: false });
         expect(m.compteur.libelle).toBe('mise(s) en service');
+        // Couleurs : bleu nuit sous le titre, blanc sous la légende et le compteur ; fond de l'image bleu pâle
+        expect(m.titre).toMatchObject({ couleurTexte: '#ffffff', couleurFond: '#1a237e', opaciteFond: 0.92 });
+        expect(m.legende).toMatchObject({ couleurTexte: '#263238', couleurFond: '#ffffff' });
+        expect(m.compteur).toMatchObject({ couleurTexte: '#1a237e', couleurFond: '#ffffff' });
+        expect(m.couleurFond).toBe('#dbeafe');
         expect(m.titre.visible && m.compteur.visible).toBe(true);
         // Deux appels : objets indépendants (la fenêtre modifie sa copie)
         expect(miseEnPageParDefaut()).not.toBe(m);

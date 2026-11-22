@@ -43,9 +43,9 @@ import ConceptionGif from './ConceptionGif.vue';
 import {
     cadrerPoint,
     centreCadre,
+    couleurValide,
     LIBELLE_COMPTEUR_DEFAUT,
     miseEnPageParDefaut,
-    type CadrageCarte,
     type MiseEnPage
 } from './mise-en-page';
 import { dessinerMiseEnPage, type Rendu } from './mise-en-page-rendu';
@@ -909,14 +909,15 @@ function fondDuGif(
     projeter: Projection,
     contours: Contours,
     regions: Contours | null,
-    encarts: boolean
+    encarts: boolean,
+    couleurMer: string
 ) {
     const c = document.createElement('canvas');
     c.width = largeur;
     c.height = hauteur;
     const ctx = c.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('Canvas indisponible');
-    ctx.fillStyle = STYLE_GIF.mer;
+    ctx.fillStyle = couleurMer;
     ctx.fillRect(0, 0, largeur, hauteur);
     const departements = contoursAffiches(contours, encarts);
     const decalage = Math.max(2, Math.round(largeur * 0.005));
@@ -1062,11 +1063,13 @@ async function creerRendu(largeur: number, margeHaut: number): Promise<Rendu | n
     const image = { largeur, hauteur };
     const centre = centreCadre(image, margeHaut);
     let vue: { cle: string; projeter: Projection; base: HTMLCanvasElement } | null = null;
-    const vueDe = (c: CadrageCarte) => {
-        const cle = `${c.x}|${c.y}|${c.zoom}`;
+    const vueDe = (m: MiseEnPage) => {
+        const c = m.carte;
+        const mer = couleurValide(m.couleurFond, STYLE_GIF.mer);
+        const cle = `${c.x}|${c.y}|${c.zoom}|${mer}`;
         if (vue?.cle !== cle) {
             const projeter: Projection = (lng, lat) => cadrerPoint(projeterAuto(lng, lat), c, image, centre);
-            vue = { cle, projeter, base: fondDuGif(largeur, hauteur, projeter, contours, regions, encarts) };
+            vue = { cle, projeter, base: fondDuGif(largeur, hauteur, projeter, contours, regions, encarts, mer) };
         }
         return vue;
     };
@@ -1076,7 +1079,7 @@ async function creerRendu(largeur: number, margeHaut: number): Promise<Rendu | n
         hauteur,
         dateApercu: periode.fin,
         dessiner: (ctx, date, m) => {
-            const { projeter, base } = vueDe(m.carte);
+            const { projeter, base } = vueDe(m);
             const affiches = misesEnServiceA(donnees.deployments, donnees.statuses, periode, date);
             ctx.drawImage(base, 0, 0);
             const couleursDuJour = couleursDepartements(affiches, donnees.statuses, contours, statutsMasques.value);

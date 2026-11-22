@@ -9,6 +9,7 @@ function faux() {
         get: (cible, nom: string) => cible[nom] ?? ((...a: unknown[]) => void appels.push(`${nom}:${a.join(',')}`)),
         set: (cible, nom: string, valeur) => {
             cible[nom] = valeur;
+            appels.push(`set:${nom}=${valeur}`);
             return true;
         }
     });
@@ -71,6 +72,32 @@ describe('dessin de la mise en page', () => {
         };
         expect(x('left')).toBeLessThan(x('center'));
         expect(x('center')).toBeLessThan(x('right'));
+    });
+
+    it('couleurs choisies : fond (avec opacité) et texte du titre, fond du compteur', () => {
+        const { ctx, appels } = faux();
+        const m = miseEnPageParDefaut();
+        m.titre.texte = 'T';
+        m.titre.couleurFond = '#ff0000';
+        m.titre.opaciteFond = 0.5;
+        m.titre.couleurTexte = '#00ff00';
+        m.compteur.couleurFond = '#0000ff';
+        m.compteur.couleurTexte = '#123456';
+        dessinerMiseEnPage(ctx, 800, 600, m, donnees());
+        expect(appels).toContain('set:fillStyle=rgba(255,0,0,0.5)');
+        expect(appels).toContain('set:fillStyle=#00ff00');
+        expect(appels).toContain('set:fillStyle=rgba(0,0,255,0.88)');
+        expect(appels).toContain('set:fillStyle=#123456');
+    });
+
+    it('couleur invalide : couleur par défaut, jamais une chaîne arbitraire dans le canvas', () => {
+        const { ctx, appels } = faux();
+        const m = miseEnPageParDefaut();
+        m.titre.texte = 'T';
+        m.titre.couleurTexte = 'url(javascript:alert(1))';
+        dessinerMiseEnPage(ctx, 800, 600, m, donnees());
+        expect(appels.some(a => a.includes('javascript'))).toBe(false);
+        expect(appels).toContain('set:fillStyle=#ffffff');
     });
 
     it('légende sans aucune ligne (statuts masqués, pas de texte) : pas de boîte ; logo sans image : ignoré', () => {

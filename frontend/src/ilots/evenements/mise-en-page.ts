@@ -62,6 +62,24 @@ export interface Position {
     y: number;
 }
 
+/** Couleur #rrggbb (casse ignorée) ; toute autre valeur est remplacée par la valeur par défaut */
+export const couleurValide = (valeur: string, defaut: string) =>
+    typeof valeur === 'string' && /^#[0-9a-f]{6}$/i.test(valeur) ? valeur.toLowerCase() : defaut;
+
+/** Couleur #rrggbb avec une opacité (0 à 1, bornée) : « rgba(r,g,b,a) » ; couleur invalide : noir */
+export function avecOpacite(couleur: string, opacite: number): string {
+    const c = couleurValide(couleur, '#000000');
+    const a = Math.min(1, Math.max(0, Number.isFinite(opacite) ? opacite : 1));
+    return `rgba(${parseInt(c.slice(1, 3), 16)},${parseInt(c.slice(3, 5), 16)},${parseInt(c.slice(5, 7), 16)},${a})`;
+}
+
+/** Couleurs d'un élément de texte : écriture, fond et opacité du fond (0 : fond transparent) */
+export interface CouleursElement {
+    couleurTexte: string;
+    couleurFond: string;
+    opaciteFond: number;
+}
+
 /** Alignement des lignes d'un texte dans sa boîte */
 export type Alignement = 'left' | 'center' | 'right';
 export const ALIGNEMENTS: { valeur: Alignement; libelle: string }[] = [
@@ -70,7 +88,7 @@ export const ALIGNEMENTS: { valeur: Alignement; libelle: string }[] = [
     { valeur: 'right', libelle: 'À droite' }
 ];
 
-export interface ElementTexte extends Position {
+export interface ElementTexte extends Position, CouleursElement {
     visible: boolean;
     /** Plusieurs lignes : un retour à la ligne par ligne */
     texte: string;
@@ -81,7 +99,7 @@ export interface ElementTexte extends Position {
     alignement: Alignement;
 }
 
-export interface Legende extends Position {
+export interface Legende extends Position, CouleursElement {
     visible: boolean;
     /** Statuts de la carte (puce de couleur et libellé) */
     statuts: boolean;
@@ -95,7 +113,7 @@ export interface Legende extends Position {
 }
 
 /** Date et nombre de mises en service (change à chaque image) */
-export interface Compteur extends Position {
+export interface Compteur extends Position, CouleursElement {
     visible: boolean;
     taille: number;
     /** Texte après « n / total » */
@@ -122,7 +140,12 @@ export interface CadrageCarte {
 }
 export const ZOOM_CARTE = { min: 0.5, max: 3, defaut: 1 } satisfies Bornes;
 
+/** Fond de l'image (mer) par défaut */
+export const COULEUR_FOND_IMAGE = '#dbeafe';
+
 export interface MiseEnPage {
+    /** Couleur du fond de l'image (derrière la carte) */
+    couleurFond: string;
     /** Position et échelle de la carte (déplacée et zoomée à la souris) */
     carte: CadrageCarte;
     titre: ElementTexte;
@@ -137,6 +160,7 @@ export interface MiseEnPage {
 export function miseEnPageParDefaut(): MiseEnPage {
     const police0 = POLICES_GIF[0]!.valeur;
     return {
+        couleurFond: COULEUR_FOND_IMAGE,
         carte: { x: 0, y: 0, zoom: ZOOM_CARTE.defaut },
         titre: {
             visible: true,
@@ -146,6 +170,9 @@ export function miseEnPageParDefaut(): MiseEnPage {
             gras: true,
             italique: false,
             alignement: 'center',
+            couleurTexte: '#ffffff',
+            couleurFond: '#1a237e',
+            opaciteFond: 0.92,
             x: 0.03,
             y: 0.02
         },
@@ -158,10 +185,22 @@ export function miseEnPageParDefaut(): MiseEnPage {
             gras: false,
             italique: false,
             alignement: 'left',
+            couleurTexte: '#263238',
+            couleurFond: '#ffffff',
+            opaciteFond: 0.9,
             x: 0.03,
             y: 0.8
         },
-        compteur: { visible: true, taille: BORNES.compteur.defaut, libelle: LIBELLE_COMPTEUR_DEFAUT, x: 0.72, y: 0.86 },
+        compteur: {
+            visible: true,
+            taille: BORNES.compteur.defaut,
+            libelle: LIBELLE_COMPTEUR_DEFAUT,
+            couleurTexte: '#1a237e',
+            couleurFond: '#ffffff',
+            opaciteFond: 0.88,
+            x: 0.72,
+            y: 0.86
+        },
         logos: [],
         margeHaut: 0.1
     };
