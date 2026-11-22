@@ -66,6 +66,7 @@ const ECHELLES: [Echelle, string, string][] = [
 async function changerEchelle(z: Echelle) {
     magasin.zoom = z;
     await nextTick();
+    centrageAuto = true;
     allerAujourdhui();
 }
 
@@ -129,6 +130,7 @@ async function changerBornes() {
     await nextTick();
     // Nouvelle période : centrée sur la date du jour si elle en fait partie, sinon au début
     if (grille.value) grille.value.scrollLeft = 0;
+    centrageAuto = true;
     allerAujourdhui();
 }
 
@@ -193,11 +195,34 @@ watch(
         );
         const coin = box.querySelector<HTMLElement>('th.corner');
         if (coin) coin.style.top = '0px';
-        box.scrollLeft = defilement.left;
-        box.scrollTop = defilement.top;
+        // Tant que l'utilisateur n'a pas défilé lui-même, la grille reste centrée sur aujourd'hui (données arrivées
+        // après le centrage, largeurs de colonnes qui changent) ; ensuite, sa position est conservée
+        if (centrageAuto) allerAujourdhui();
+        else {
+            box.scrollLeft = defilement.left;
+            box.scrollTop = defilement.top;
+        }
+        suivreTableau(box);
     },
     { flush: 'post' }
 );
+
+/** La grille se recentre seule sur aujourd'hui (jusqu'au premier défilement de l'utilisateur) */
+let centrageAuto = false;
+const arreterCentrage = () => {
+    centrageAuto = false;
+};
+/** Largeur du tableau modifiée (colonnes, polices) : recentrage tant que le centrage est automatique */
+let observateurTableau: ResizeObserver | null = null;
+function suivreTableau(box: HTMLElement) {
+    observateurTableau?.disconnect();
+    const table = box.querySelector('table');
+    if (!table || typeof ResizeObserver === 'undefined') return;
+    observateurTableau = new ResizeObserver(() => {
+        if (centrageAuto) allerAujourdhui();
+    });
+    observateurTableau.observe(table);
+}
 
 /** Défilement sur la date du jour (centrée) */
 function allerAujourdhui() {
@@ -227,7 +252,10 @@ function centrerQuandVisible() {
     });
     observateur.observe(box);
 }
-onBeforeUnmount(() => observateur?.disconnect());
+onBeforeUnmount(() => {
+    observateur?.disconnect();
+    observateurTableau?.disconnect();
+});
 
 // Clics dans la grille : affectation (étape), retrait d'une ligne, rafraîchissement depuis Asana
 const affectation = ref<{ id: number; etape: string } | null>(null);
@@ -257,6 +285,11 @@ function toucheGrille(e: KeyboardEvent) {
 }
 
 // Largeur de la colonne SAMU : poignée glissée à la souris, mémorisée
+/** Appui dans la grille (aussi sur sa barre de défilement) : l'utilisateur reprend la main sur le défilement */
+function pointeurGrille(ev: PointerEvent) {
+    arreterCentrage();
+    redimensionner(ev);
+}
 function redimensionner(ev: PointerEvent) {
     const poignee = (ev.target as HTMLElement).closest('.aff-rs');
     if (!poignee) return;
@@ -296,6 +329,7 @@ function annoncer(texte: string, erreur = false, duree = 6000) {
 // ── Ouverture ────────────────────────────────────────────────────────────────
 
 async function ouvrir() {
+    centrageAuto = true;
     await sessionStore.charger();
     await magasin.charger();
     await nextTick();
@@ -549,7 +583,9 @@ surReouverture(() => void ouvrir());
         :style="{ '--aff-samw': `${magasin.largeurSamu}px` }"
         @click="actionGrille"
         @keydown="toucheGrille"
-        @pointerdown="redimensionner"
+        @pointerdown="pointeurGrille"
+        @wheel.passive="arreterCentrage"
+        @touchstart.passive="arreterCentrage"
     >
         <p v-if="magasin.erreur" class="aff-error aff-plan__erreur">Chargement impossible : {{ magasin.erreur }}</p>
         <p v-else-if="!magasin.charge" class="aff-muted aff-plan__chargement">Chargement…</p>
