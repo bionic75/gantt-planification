@@ -1,9 +1,10 @@
 <!-- Liste des ressources : identité, taux ou MAD volante, SAMU, affectations principales / secondaires, dates et statut
-     de la MAD, astreintes et activation (modifiables, sauf profil RH), fiche (modification ou consultation RH),
+     de la MAD, astreintes de la période en cours (lecture seule : elles se modifient par période, dans la fiche) et
+     activation (modifiable, sauf profil RH), fiche (modification ou consultation RH),
      suppression ; tri par colonne sur le texte affiché, comme l'ancien écran -->
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import { apiRessources, type Ressource, type TypeAstreinte } from '@/api/ressources';
+import { apiRessources, type Ressource } from '@/api/ressources';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppIcone from '@/composants/AppIcone.vue';
 import { useConfirmation } from '@/composants/confirmation';
@@ -18,7 +19,7 @@ const magasin = useRessourcesStore();
 const confirmer = useConfirmation();
 const erreur = ref('');
 
-const ASTREINTES: ReadonlyArray<{ type: TypeAstreinte; champ: keyof Ressource; tip: string }> = [
+const ASTREINTES: ReadonlyArray<{ type: 'ho' | 'hno' | 'apd'; champ: keyof Ressource; tip: string }> = [
     { type: 'ho', champ: 'astreinte_ho', tip: 'Astreintes HO : jours de la semaine, heures ouvrées' },
     { type: 'hno', champ: 'astreinte_volontaire', tip: 'Astreintes HNO : jours et heures non ouvrés' },
     {
@@ -126,16 +127,6 @@ async function basculerActif(r: Ressource) {
     }
 }
 
-async function basculerAstreinte(r: Ressource, type: TypeAstreinte, coche: boolean) {
-    erreur.value = '';
-    try {
-        await apiRessources.astreinte(r.id, coche, type);
-    } catch {
-        erreur.value = 'Erreur modification accès astreinte';
-    }
-    await modifiees(false);
-}
-
 async function supprimer(r: Ressource) {
     if (!(await confirmer('Confirmer la suppression ?', 'Supprimer'))) return;
     erreur.value = '';
@@ -210,12 +201,10 @@ const statuts = computed(() =>
                         <input
                             type="checkbox"
                             :checked="!!r[a.champ]"
-                            :disabled="rh"
-                            class="liste__astreinte"
-                            :class="{ 'liste__astreinte--lecture': rh }"
-                            :title="a.tip"
+                            disabled
+                            class="liste__astreinte liste__astreinte--lecture"
+                            :title="`${a.tip} — valeur de la période en cours ; à modifier par période (fiche de la ressource, historique des MAD)`"
                             :aria-label="a.tip"
-                            @change="basculerAstreinte(r, a.type, ($event.target as HTMLInputElement).checked)"
                         />
                     </td>
                     <td v-if="!rh">
@@ -362,8 +351,8 @@ const statuts = computed(() =>
     cursor: pointer;
 }
 .liste__astreinte--lecture {
-    opacity: 0.5;
-    cursor: not-allowed;
+    opacity: 0.75;
+    cursor: default;
 }
 .liste__etat {
     font-size: 11px;

@@ -83,10 +83,10 @@ Then('la ressource est inactive', async ({ monde }) => {
     await expect.poll(async () => (await lireRessource(monde, monde.d.ressource!.id))?.actif).toBe(0);
 });
 
-When("je coche l'astreinte {string} de la ressource dans la liste", async ({ monde }, type) => {
-    await ligneRessource(monde)
-        .getByRole('checkbox', { name: new RegExp(`^Astreintes ${type}\\b`) })
-        .check();
+Then("les cases d'astreinte de la ressource dans la liste ne sont pas modifiables", async ({ monde }) => {
+    const cases = ligneRessource(monde).getByRole('checkbox', { name: /^Astreintes/ });
+    await expect(cases).toHaveCount(3);
+    for (const c of await cases.all()) await expect(c).toBeDisabled();
 });
 
 Then('la ressource participe aux astreintes {string}', async ({ monde }, type) => {
@@ -297,7 +297,7 @@ const fenetrePeriode = (monde: Monde) => monde.page.locator('#madHistoryModal');
 
 Then("l'historique de la fiche présente {int} période(s), la dernière au taux {string}", async ({ monde }, n, taux) => {
     await expect(lignesHistorique(monde)).toHaveCount(n);
-    await expect(lignesHistorique(monde).last().locator('td').nth(2)).toHaveText(taux);
+    await expect(lignesHistorique(monde).last().locator('td.historique__taux')).toHaveText(taux);
 });
 
 /** Enregistrement de la fenêtre d'une période de MAD */
@@ -316,7 +316,7 @@ When('je clôture dans la fiche la période en cours au {string}', async ({ mond
 When("j'ajoute dans la fiche une période au taux de {int} % à partir du {string}", async ({ monde }, taux, debut) => {
     const page = monde.page;
     await fiche(monde)
-        .getByRole('button', { name: /Ajouter un taux de MAD/ })
+        .getByRole('button', { name: /Ajouter une période/ })
         .click();
     await expect(fenetrePeriode(monde)).toBeVisible();
     await page.locator('#madDateDebut').fill(debut);
@@ -388,7 +388,7 @@ Then(
         await expect(fiche(monde)).toContainText('Détail de la ressource');
         for (const id of ['editNom', 'editTrigramme', 'editSamu', 'editFonction', 'editContactsRh'])
             await expect(page.locator(`#${id}`)).toBeDisabled();
-        await expect(fiche(monde).getByRole('button', { name: /Ajouter un taux de MAD/ })).toBeHidden();
+        await expect(fiche(monde).getByRole('button', { name: /Ajouter une période/ })).toBeHidden();
         await expect(fiche(monde).getByRole('button', { name: 'Enregistrer', exact: true })).toHaveCount(0);
         await expect(fiche(monde)).toContainText('Astreintes HO : non');
     }

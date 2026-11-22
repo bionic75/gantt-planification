@@ -11,6 +11,7 @@ import {
     joursDisponibles,
     joursDuMois,
     joursMadVolanteConsommes,
+    periodeVolante,
     moisVoisin,
     pastilleAstreinte,
     ressourcesAffichees,
@@ -119,6 +120,31 @@ describe('compteurs', () => {
         expect(joursAttendus(ressource({ date_debut: '2028-01-01' }), 2027, 1, [], undefined)).toBe('0');
     });
 
+    it('période de MAD volante : celle de la date, sinon la prochaine, sinon la dernière ; repli sur la ressource', () => {
+        const h = [
+            { id: 1, date_debut: '2027-01-01', date_fin: '2027-01-31', taux: 0, volante: 1, jours_max: 5 },
+            { id: 2, date_debut: '2027-02-01', date_fin: '2027-02-28', taux: 60, volante: 0, jours_max: null },
+            { id: 3, date_debut: '2027-03-01', date_fin: '2027-03-31', taux: 0, volante: 1, jours_max: 8 }
+        ];
+        const res = ressource({});
+        expect(periodeVolante(res, h, '2027-01-10')).toEqual({ debut: '2027-01-01', fin: '2027-01-31', joursMax: 5 });
+        expect(periodeVolante(res, h, '2027-02-10', false)).toBeNull();
+        expect(periodeVolante(res, h, '2027-02-10')?.joursMax).toBe(8);
+        expect(periodeVolante(res, h, '2027-06-01')?.joursMax).toBe(8);
+        const legacy = ressource({
+            is_mad_volante: 1,
+            date_debut: '2027-01-01',
+            date_fin_mad: '2027-06-30',
+            jours_max_mad: 12
+        });
+        expect(periodeVolante(legacy, undefined, '2027-02-01')).toEqual({
+            debut: '2027-01-01',
+            fin: '2027-06-30',
+            joursMax: 12
+        });
+        expect(periodeVolante(ressource({}), undefined, '2027-02-01')).toBeNull();
+    });
+
     it('disponibles et MAD volante consommée', () => {
         const planning = {
             '1_available_2027-02-01_AM': '2',
@@ -129,8 +155,9 @@ describe('compteurs', () => {
             '1_activity_2027-03-01_AM': '5'
         };
         expect(joursDisponibles(planning, 1, 2027, 1)).toBe(1);
-        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', null)).toBe(1);
-        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', '2027-02-28')).toBe(0.5);
+        // Demi-journées disponibles (« 2 »), affectées ou non
+        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', null)).toBe(1.5);
+        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', '2027-02-28')).toBe(1);
     });
 });
 

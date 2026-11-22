@@ -98,9 +98,14 @@ export async function createResource(data: Record<string, any>, createdBy: numbe
         .create({
             data: {
                 resource_id: id,
-                taux: toFloat(taux),
+                taux: is_mad_volante ? 0 : toFloat(taux),
                 date_debut: optional(date_debut) || today(),
-                date_fin: null,
+                date_fin: is_mad_volante ? optional(date_fin_mad) : null,
+                volante: flag(is_mad_volante),
+                jours_max: is_mad_volante ? toInt(jours_max_mad) : null,
+                astreinte_ho: flag(astreinte_ho),
+                astreinte_hno: flag(astreinte_volontaire),
+                astreinte_apd: flag(astreinte_apd),
                 created_by: createdBy
             }
         })
@@ -164,6 +169,7 @@ export async function updateResource(id: string | number, data: Record<string, a
             jours_max_mad: toInt(jours_max_mad)
         }
     });
+    await appliquerFicheALaPeriode(resourceId, data);
     // Une ressource volontaire aux astreintes (HNO ou HO) doit avoir un compte expert
     if (astreinte_volontaire || astreinte_ho) {
         await prisma.user.updateMany({ where: { resource_id: resourceId }, data: { is_expert: 1 } }).catch(() => {});
@@ -212,7 +218,15 @@ export async function setAstreinteVolontaire(id: string | number, enabled: boole
     const column = ASTREINTE_COLUMNS[type as keyof typeof ASTREINTE_COLUMNS];
     if (!column) throw badRequest("Type d'astreinte inconnu (ho, hno ou apd)");
     const resourceId = idParam(id);
+    // Les astreintes sont celles d'une période de MAD : la bascule vise la période en cours (créée au besoin)
+    const periodes = await listMadHistory(resourceId);
+    const courante = periodeEnCours(periodes);
+    const champ = { ho: 'astreinte_ho', hno: 'astreinte_hno', apd: 'astreinte_apd' }[type] as
+        'astreinte_ho' | 'astreinte_hno' | 'astreinte_apd';
+    if (courante)
+        await prisma.resourceMadHistory.update({ where: { id: courante.id }, data: { [champ]: flag(enabled) } });
     await prisma.resource.updateMany({ where: { id: resourceId }, data: { [column]: flag(enabled) } });
+    if (courante) await syncResource(resourceId);
     if (enabled && type !== 'apd') {
         await prisma.user.updateMany({ where: { resource_id: resourceId }, data: { is_expert: 1 } }).catch(() => {});
     }
@@ -291,49 +305,206 @@ function assertNoMadOverlap(
     }
 }
 
-/** Le taux courant de la ressource suit la période MAD en cours */
-async function syncCurrentRate(resourceId: number, taux: number, start: string, end: string | null | undefined) {
-    const now = today();
-    if (start <= now && (!end || end >= now)) {
-        await prisma.resource.updateMany({ where: { id: resourceId }, data: { taux } });
+type PeriodeMad = { id: number; date_debut: string; date_fin: string | null };
+
+/** Période MAD « en cours » : celle d'aujourd'hui, à défaut la prochaine, à défaut la dernière terminée */
+export function periodeEnCours<T extends PeriodeMad>(periodes: T[], jour = today()): T | undefined {
+    const tri = [...periodes].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+    return (
+        tri.find(p => p.date_debut <= jour && (!p.date_fin || p.date_fin >= jour)) ??
+        tri.find(p => p.date_debut > jour) ??
+        tri[tri.length - 1]
+    );
+}
+
+/**
+ * Type, taux, quota et astreintes de la ressource (liste, planification, CRA, astreintes) : ceux de sa période MAD
+ * en cours. `expert` : une astreinte HO ou HNO donne le profil expert aux comptes rattachés (action de l'utilisateur).
+ */
+async function syncResource(resourceId: number, expert = false) {
+    const current = periodeEnCours(await listMadHistory(resourceId));
+    if (!current) return;
+    await prisma.resource.updateMany({ where: { id: resourceId }, data: donneesResource(current) });
+    if (expert && (current.astreinte_ho || current.astreinte_hno)) {
+        await prisma.user.updateMany({ where: { resource_id: resourceId }, data: { is_expert: 1 } }).catch(() => {});
+    }
+}
+
+type PeriodeSync = Awaited<ReturnType<typeof listMadHistory>>[number];
+
+/** Colonnes de la ressource qui suivent sa période en cours */
+const donneesResource = (p: PeriodeSync) => ({
+    is_mad_volante: p.volante ? 1 : 0,
+    taux: p.volante ? 0 : p.taux,
+    date_fin_mad: p.volante ? p.date_fin : null,
+    jours_max_mad: p.volante ? p.jours_max : null,
+    astreinte_ho: p.astreinte_ho ?? 0,
+    astreinte_volontaire: p.astreinte_hno ?? 0,
+    astreinte_apd: p.astreinte_apd ?? 0
+});
+
+/**
+ * Toutes les ressources reprennent les valeurs de leur période en cours : la période en cours change avec la date
+ * (démarrage ou fin d'une période) sans que personne ne modifie la ressource. Appelée au démarrage puis chaque heure.
+ */
+export async function syncToutesLesRessources(jour = today()) {
+    const [periodes, ressources] = await Promise.all([
+        prisma.resourceMadHistory.findMany({ orderBy: [{ date_debut: 'asc' }, { id: 'asc' }] }),
+        prisma.resource.findMany()
+    ]);
+    const parRessource = new Map<number, PeriodeSync[]>();
+    for (const p of periodes) parRessource.set(p.resource_id, [...(parRessource.get(p.resource_id) ?? []), p]);
+    let modifiees = 0;
+    for (const r of ressources) {
+        const courante = periodeEnCours(parRessource.get(r.id) ?? [], jour);
+        if (!courante) continue;
+        const voulu = donneesResource(courante);
+        const change = (Object.keys(voulu) as Array<keyof typeof voulu>).some(
+            k => (r[k] ?? null) !== (voulu[k] ?? null)
+        );
+        if (!change) continue;
+        await prisma.resource.updateMany({ where: { id: r.id }, data: voulu });
+        modifiees++;
+    }
+    return modifiees;
+}
+
+/** Astreintes (HO, HNO, APD) d'un corps de requête ; champs absents : undefined (valeur conservée) */
+function astreintesDuCorps(b: Record<string, unknown>) {
+    const lire = (v: unknown) => (v === undefined || v === null ? undefined : flag(v));
+    return {
+        astreinte_ho: lire(b.astreinte_ho),
+        astreinte_hno: lire(b.astreinte_hno ?? b.astreinte_volontaire),
+        astreinte_apd: lire(b.astreinte_apd)
+    };
+}
+
+/** Corps d'une période : MAD volante (taux 0, date de fin et jours max obligatoires) ou classique (taux obligatoire) */
+function madPeriodData(b: { taux?: unknown; volante?: unknown; jours_max?: unknown; date_fin?: unknown }) {
+    if (flag(b.volante)) {
+        const jours = toInt(b.jours_max);
+        if (!optional(b.date_fin as string) || !jours || jours < 1) {
+            throw badRequest('Date de fin et jours max obligatoires pour une MAD volante');
+        }
+        return { taux: 0, volante: 1, jours_max: jours };
+    }
+    if (b.taux === undefined || b.taux === null || b.taux === '') throw badRequest('Taux et date de début requis');
+    return { taux: toFloat(b.taux), volante: 0, jours_max: null };
+}
+
+/**
+ * Fiche de la ressource : son type de MAD, ses dates et son quota sont ceux de la période indiquée (periode_id), à
+ * défaut de la période en cours (créée au besoin). Dates de la période : periode_debut et periode_fin si elles sont
+ * données (MAD volante ou classique), sinon date_debut et date_fin_mad pour une MAD volante.
+ */
+async function appliquerFicheALaPeriode(resource_id: number, data: Record<string, any>) {
+    const { is_mad_volante, date_debut, date_fin_mad, jours_max_mad, taux, periode_id, periode_debut, periode_fin } =
+        data;
+    const periodes = await listMadHistory(resource_id);
+    const indiquee = optional(periode_id) ? periodes.find(p => p.id === idParam(periode_id)) : undefined;
+    if (optional(periode_id) && !indiquee) throw notFound('Période MAD non trouvée');
+    const cible = indiquee ?? periodeEnCours(periodes);
+    const volante = flag(is_mad_volante);
+    const avecDates = periode_debut !== undefined;
+    const debut = avecDates
+        ? optional(periode_debut)
+        : volante
+          ? (optional(date_debut) ?? cible?.date_debut ?? today())
+          : (cible?.date_debut ?? today());
+    const fin = avecDates ? optional(periode_fin) : volante ? optional(date_fin_mad) : (cible?.date_fin ?? null);
+    if (!debut) throw badRequest('Date de début de la période requise');
+    if (fin && fin < debut) throw badRequest('La date de fin doit être postérieure à la date de début');
+    const type = volante
+        ? { volante: 1, taux: 0, jours_max: toInt(jours_max_mad) }
+        : {
+              volante: 0,
+              jours_max: null,
+              taux: Number.isFinite(parseFloat(taux)) ? parseFloat(taux) : (cible?.taux ?? 0)
+          };
+    const datesChangent = !cible || cible.date_debut !== debut || cible.date_fin !== fin;
+    if (datesChangent) {
+        assertNoMadOverlap(
+            periodes.filter(p => p.id !== cible?.id),
+            debut,
+            fin
+        );
+    }
+    const valeurs = { ...type, ...astreintesDuCorps(data), date_debut: debut, date_fin: fin };
+    if (cible) await prisma.resourceMadHistory.update({ where: { id: cible.id }, data: valeurs });
+    else await prisma.resourceMadHistory.create({ data: { resource_id, ...valeurs } });
+    await syncResource(resource_id, true);
+    // Début de la ressource : celui de sa première période (si les dates de la période ont été saisies)
+    if (avecDates) {
+        const premiere = (await listMadHistory(resource_id))[0];
+        if (premiere)
+            await prisma.resource.updateMany({ where: { id: resource_id }, data: { date_debut: premiere.date_debut } });
     }
 }
 
 export async function addMadPeriod(
     resourceId: string | number,
-    { taux, date_debut, date_fin }: { taux?: unknown; date_debut?: string; date_fin?: string },
+    body: {
+        taux?: unknown;
+        date_debut?: string;
+        date_fin?: string;
+        volante?: unknown;
+        jours_max?: unknown;
+        astreinte_ho?: unknown;
+        astreinte_hno?: unknown;
+        astreinte_apd?: unknown;
+    },
     createdBy: number
 ) {
-    if (taux === undefined || !date_debut) throw badRequest('Taux et date de début requis');
+    if (!body.date_debut) throw badRequest('Taux et date de début requis');
     const resource_id = idParam(resourceId);
-    const start = String(date_debut);
-    const end = optional(date_fin);
+    const start = String(body.date_debut);
+    const end = optional(body.date_fin);
+    const type = madPeriodData(body);
 
-    assertNoMadOverlap(await listMadHistory(resource_id), start, end);
+    const existantes = await listMadHistory(resource_id);
+    assertNoMadOverlap(existantes, start, end);
+    // Astreintes non indiquées : celles de la période en cours (continuité d'une période à la suivante)
+    const heritage = periodeEnCours(existantes);
+    const indiquees = astreintesDuCorps(body);
+    const astreintes = {
+        astreinte_ho: indiquees.astreinte_ho ?? heritage?.astreinte_ho ?? 0,
+        astreinte_hno: indiquees.astreinte_hno ?? heritage?.astreinte_hno ?? 0,
+        astreinte_apd: indiquees.astreinte_apd ?? heritage?.astreinte_apd ?? 0
+    };
     const { id } = await prisma.resourceMadHistory.create({
-        data: { resource_id, taux: toFloat(taux), date_debut: start, date_fin: end, created_by: createdBy }
+        data: { resource_id, ...type, ...astreintes, date_debut: start, date_fin: end, created_by: createdBy }
     });
-    await syncCurrentRate(resource_id, toFloat(taux), start, end);
+    await syncResource(resource_id, true);
     return id;
 }
 
 export async function updateMadPeriod(
     resourceId: string | number,
     historyId: string | number,
-    { taux, date_debut, date_fin }: { taux?: unknown; date_debut: string; date_fin?: string }
+    body: {
+        taux?: unknown;
+        date_debut: string;
+        date_fin?: string;
+        volante?: unknown;
+        jours_max?: unknown;
+        astreinte_ho?: unknown;
+        astreinte_hno?: unknown;
+        astreinte_apd?: unknown;
+    }
 ) {
     const resource_id = idParam(resourceId);
     const id = idParam(historyId);
-    const start = required(date_debut);
-    const end = optional(date_fin);
+    const start = required(body.date_debut);
+    const end = optional(body.date_fin);
+    const type = madPeriodData(body);
 
     const others = await prisma.resourceMadHistory.findMany({ where: { resource_id, id: { not: id } } });
     assertNoMadOverlap(others, start, end);
     await prisma.resourceMadHistory.updateMany({
         where: { id, resource_id },
-        data: { taux: taux === undefined ? (null as any) : toFloat(taux), date_debut: start, date_fin: end }
+        data: { ...type, ...astreintesDuCorps(body), date_debut: start, date_fin: end }
     });
-    await syncCurrentRate(resource_id, toFloat(taux), start, end);
+    await syncResource(resource_id, true);
 }
 
 /** Supprime une période MAD et ses particularités ; la dernière période ne peut pas être supprimée */
@@ -345,6 +516,7 @@ export async function deleteMadPeriod(resourceId: string | number, historyId: st
     }
     await prisma.resourceMadParticularite.deleteMany({ where: { mad_history_id: id } });
     await prisma.resourceMadHistory.deleteMany({ where: { id, resource_id } });
+    await syncResource(resource_id);
 }
 
 // ---------- Particularités MAD (taux temporaire à l'intérieur d'une période) ----------

@@ -34,6 +34,13 @@ export interface PeriodeMad {
     date_debut: string;
     date_fin: string | null;
     taux: number;
+    /** 1 : période de MAD volante (taux 0, quota de jours) ; 0 : MAD classique */
+    volante?: number | null;
+    jours_max?: number | null;
+    /** Astreintes de la période : HO, HNO, accompagnement post démarrage */
+    astreinte_ho?: number | null;
+    astreinte_hno?: number | null;
+    astreinte_apd?: number | null;
 }
 
 /** Affectation d'une ressource sur un SAMU (expert principal ou secondaire) */
@@ -96,6 +103,10 @@ export interface CorpsFiche {
     is_mad_volante: 0 | 1;
     date_fin_mad: string | null;
     jours_max_mad: number | null;
+    /** Période de MAD visée par les champs de MAD de la fiche, et ses dates */
+    periode_id?: number;
+    periode_debut?: string;
+    periode_fin?: string | null;
 }
 
 /** Période ou particularité saisie */
@@ -103,6 +114,15 @@ export interface CorpsPeriode {
     taux: number;
     date_debut: string;
     date_fin: string | null;
+}
+
+/** Période de l'historique de MAD : classique (taux) ou volante (quota de jours, date de fin obligatoire) */
+export interface CorpsPeriodeMad extends CorpsPeriode {
+    volante?: boolean;
+    jours_max?: number | null;
+    astreinte_ho?: boolean;
+    astreinte_hno?: boolean;
+    astreinte_apd?: boolean;
 }
 
 export type TypeAstreinte = 'ho' | 'hno' | 'apd';
@@ -119,8 +139,8 @@ export const apiRessources = {
         api.put(`/resources/${id}/samu-assignments`, { principal, secondaire }),
     historiqueMad: (id: number) => api.get<PeriodeMad[]>(`/resources/${id}/mad-history`),
     modifier: (id: number, corps: CorpsFiche) => api.put(`/resources/${id}`, corps),
-    ajouterPeriode: (id: number, corps: CorpsPeriode) => api.post(`/resources/${id}/mad-history`, corps),
-    modifierPeriode: (id: number, periode: number, corps: CorpsPeriode) =>
+    ajouterPeriode: (id: number, corps: CorpsPeriodeMad) => api.post(`/resources/${id}/mad-history`, corps),
+    modifierPeriode: (id: number, periode: number, corps: CorpsPeriodeMad) =>
         api.put(`/resources/${id}/mad-history/${periode}`, corps),
     supprimerPeriode: (id: number, periode: number) => api.delete(`/resources/${id}/mad-history/${periode}`),
     particularites: (id: number, periode: number) =>
