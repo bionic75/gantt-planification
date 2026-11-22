@@ -5,7 +5,7 @@
 import { computed } from 'vue';
 import type { Ressource } from '@/api/ressources';
 import AppIcone from '@/composants/AppIcone.vue';
-import { avecConfig, datesDuJour, pastille, zonesEnConges } from '@/ilots/consultation/calendrier';
+import { avecConfig, cleDateLocale, datesDuJour, pastille, zonesEnConges } from '@/ilots/consultation/calendrier';
 import {
     LIBELLES_AFFECTATION,
     LIBELLES_DISPO,
@@ -23,6 +23,7 @@ import {
     joursMadVolanteConsommes,
     pastilleAstreinte,
     periodeAcces,
+    periodeVolante,
     semainesDuMois,
     valeurs,
     type JourGrille,
@@ -120,14 +121,17 @@ interface CelluleAffichee {
 }
 
 const lignes = computed(() => {
+    const aujourdhuiIso = cleDateLocale(new Date());
     const totDispo = Array<number>(jours.value.length * 2).fill(0);
     const totAffect = Array<number>(jours.value.length * 2).fill(0);
     const rangees = props.ressources.map(r => {
         const historique = p.historiqueMad[r.id];
-        const madVolante = !!r.is_mad_volante;
-        const madMax = r.jours_max_mad || 0;
-        const madRestants = madVolante
-            ? Math.max(0, madMax - joursMadVolanteConsommes(p.planning, r.id, r.date_debut, r.date_fin_mad))
+        // Période de MAD volante du jour (à défaut la prochaine, puis la dernière) : son quota repart à zéro à chaque période
+        const volante = periodeVolante(r, historique, aujourdhuiIso);
+        const madVolante = !!volante;
+        const madMax = volante?.joursMax ?? 0;
+        const madRestants = volante
+            ? Math.max(0, madMax - joursMadVolanteConsommes(p.planning, r.id, volante.debut, volante.fin))
             : 0;
         const compte = p.comptes.find(u => u.resource_id === r.id);
         const acces = periodeAcces(r, historique);

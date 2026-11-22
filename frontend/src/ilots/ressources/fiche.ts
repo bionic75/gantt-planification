@@ -42,9 +42,11 @@ export interface FormulaireFiche {
     fonction: string;
     es: string;
     madVolante: boolean;
+    /** Dates, quota et taux de la période de MAD concernée */
     dateDebutMad: string;
     dateFinMad: string;
     joursMaxMad: string;
+    taux: string;
     principal: string[];
     secondaire: string[];
     astreinteHo: boolean;
@@ -58,7 +60,8 @@ export interface FormulaireFiche {
 export function formulaireFiche(
     r: Ressource,
     affectation: { principal: string[]; secondaire: string[] } | undefined,
-    samus: ReadonlyArray<string>
+    samus: ReadonlyArray<string>,
+    periode?: PeriodeMad
 ): FormulaireFiche {
     return {
         nom: r.nom,
@@ -67,27 +70,69 @@ export function formulaireFiche(
         samu: samus.includes(r.samu) ? r.samu : '',
         fonction: r.fonction || '',
         es: r.es_rattachement || '',
-        madVolante: !!r.is_mad_volante,
-        dateDebutMad: r.date_debut || '',
-        dateFinMad: r.date_fin_mad || '',
-        joursMaxMad: r.jours_max_mad ? String(r.jours_max_mad) : '',
+        ...champsMad(r, periode),
         principal: [...(affectation?.principal ?? [])],
         secondaire: [...(affectation?.secondaire ?? [])],
-        astreinteHo: !!r.astreinte_ho,
-        astreinteHno: !!r.astreinte_volontaire,
-        astreinteApd: !!r.astreinte_apd,
         dateAstreinte: r.astreinte_date_activation || '',
         contacts: r.contacts_rh || ''
     };
 }
 
+/** Champs de MAD du formulaire : ceux de la période concernée ; sans période, ceux de la ressource */
+export function champsMad(
+    r: Ressource,
+    periode?: PeriodeMad
+): Pick<
+    FormulaireFiche,
+    | 'madVolante'
+    | 'dateDebutMad'
+    | 'dateFinMad'
+    | 'joursMaxMad'
+    | 'taux'
+    | 'astreinteHo'
+    | 'astreinteHno'
+    | 'astreinteApd'
+> {
+    if (periode) {
+        return {
+            madVolante: !!periode.volante,
+            dateDebutMad: periode.date_debut || '',
+            dateFinMad: periode.date_fin || '',
+            joursMaxMad: periode.jours_max ? String(periode.jours_max) : '',
+            taux: String(periode.taux),
+            astreinteHo: !!periode.astreinte_ho,
+            astreinteHno: !!periode.astreinte_hno,
+            astreinteApd: !!periode.astreinte_apd
+        };
+    }
+    return {
+        madVolante: !!r.is_mad_volante,
+        dateDebutMad: r.date_debut || '',
+        dateFinMad: r.date_fin_mad || '',
+        joursMaxMad: r.jours_max_mad ? String(r.jours_max_mad) : '',
+        taux: r.taux === null || r.taux === undefined ? '' : String(r.taux),
+        astreinteHo: !!r.astreinte_ho,
+        astreinteHno: !!r.astreinte_volontaire,
+        astreinteApd: !!r.astreinte_apd
+    };
+}
+
+/** Période de MAD concernée par la fiche : celle d'aujourd'hui, à défaut la prochaine, à défaut la dernière */
+export function periodeConcernee(historique: PeriodeMad[], jour: string): PeriodeMad | undefined {
+    const tri = [...historique].sort((a, b) => a.date_debut.localeCompare(b.date_debut));
+    return (
+        tri.find(p => p.date_debut <= jour && (!p.date_fin || p.date_fin >= jour)) ??
+        tri.find(p => p.date_debut > jour) ??
+        tri[tri.length - 1]
+    );
+}
+
 /** Fiche non enregistrable : message de l'ancien écran (contacts : adresses invalides à corriger), ou null */
 export function ficheIncomplete(f: FormulaireFiche): { message: string; contacts: boolean } | null {
-    if (f.madVolante) {
-        if (!f.dateDebutMad) return { message: 'Renseignez la date de début de la MAD.', contacts: false };
-        if (f.dateFinMad && f.dateFinMad < f.dateDebutMad)
-            return { message: 'La date de fin de la MAD précède sa date de début.', contacts: false };
-    }
+    if (f.madVolante && !f.dateDebutMad) return { message: 'Renseignez la date de début de la MAD.', contacts: false };
+    if (f.dateDebutMad && f.dateFinMad && f.dateFinMad < f.dateDebutMad)
+        return { message: 'La date de fin de la MAD précède sa date de début.', contacts: false };
+    if (!f.madVolante && f.taux.trim() === '') return { message: 'Renseignez le taux de MAD.', contacts: false };
     const { invalides } = lignesEmail(f.contacts);
     if (invalides.length)
         return {
@@ -109,16 +154,16 @@ export function tauxEnregistre(historique: PeriodeMad[], aujourdhui: string, tau
 }
 
 /** Fiche enregistrée, comme l'ancien écran : champs tels que saisis, date de fin de la ressource conservée */
-export function corpsFiche(f: FormulaireFiche, r: Ressource, taux: number): CorpsFiche {
+export function corpsFiche(f: FormulaireFiche, r: Ressource, periodeId: number | null): CorpsFiche {
     return {
         nom: f.nom,
         prenom: f.prenom,
         trigramme: f.trigramme,
         email: null,
         telephone: null,
-        taux,
+        taux: f.madVolante ? 0 : parseFloat(f.taux) || 0,
         samu: f.samu,
-        date_debut: f.dateDebutMad || null,
+        date_debut: r.date_debut || null,
         date_fin: r.date_fin || null,
         es_rattachement: f.es || null,
         fonction: f.fonction || null,
@@ -129,7 +174,10 @@ export function corpsFiche(f: FormulaireFiche, r: Ressource, taux: number): Corp
         astreinte_date_activation: f.dateAstreinte || null,
         is_mad_volante: f.madVolante ? 1 : 0,
         date_fin_mad: f.dateFinMad || null,
-        jours_max_mad: f.joursMaxMad ? parseInt(f.joursMaxMad) : null
+        jours_max_mad: f.joursMaxMad ? parseInt(f.joursMaxMad) : null,
+        // Période visée et ses dates (début de la ressource : celui de sa première période, côté serveur)
+        ...(periodeId ? { periode_id: periodeId } : {}),
+        ...(f.dateDebutMad ? { periode_debut: f.dateDebutMad, periode_fin: f.dateFinMad || null } : {})
     };
 }
 
@@ -143,9 +191,23 @@ export function depuisMois(date: string | null, maintenant = new Date()): string
 
 // ---------- Périodes de MAD et particularités ----------
 
+/** Période de l'historique qui couvre le jour (AAAA-MM-JJ) : la période « en cours » */
+export function periodeCouvrant(historique: PeriodeMad[], jour: string): PeriodeMad | undefined {
+    return historique.find(p => p.date_debut <= jour && (!p.date_fin || p.date_fin >= jour));
+}
+
 /** Période saisie incomplète ou incohérente : message, ou null */
-export function periodeIncomplete(debut: string, fin: string, taux: string): string | null {
-    if (!debut || taux === '') return 'Veuillez remplir la date de début et le taux';
+export function periodeIncomplete(
+    debut: string,
+    fin: string,
+    taux: string,
+    volante = false,
+    joursMax = ''
+): string | null {
+    if (volante) {
+        if (!debut || !fin || !(parseFloat(joursMax) > 0))
+            return 'Remplissez la date de fin et les jours max pour une MAD volante';
+    } else if (!debut || taux === '') return 'Veuillez remplir la date de début et le taux';
     if (fin && debut > fin) return 'La date de fin doit être postérieure à la date de début';
     return null;
 }

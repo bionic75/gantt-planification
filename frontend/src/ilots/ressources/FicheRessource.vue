@@ -1,8 +1,9 @@
-<!-- Fiche d'une ressource : identité, SAMU et ES, MAD volante, expert principal / secondaire sur des SAMU, astreintes,
-     contacts RH de l'ES (une adresse par ligne, contrôlées en direct), historique des taux de MAD. Consultation (profil
+<!-- Fiche d'une ressource : identité, SAMU et ES, expert principal / secondaire sur des SAMU, contacts RH de l'ES (une
+     adresse par ligne, contrôlées en direct), MAD de la période concernée (dates, volante et quota, taux), astreintes,
+     historique des MAD. Consultation (profil
      RH) : champs en lecture seule, astreintes en texte, sans ajout de taux. Fermée par un clic sur le fond. -->
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { apiRessources, type PeriodeMad, type Ressource } from '@/api/ressources';
 import { ErreurApi } from '@/api/client';
 import AppModal from '@/composants/AppModal.vue';
@@ -12,10 +13,11 @@ import { dateFr, esDuSamu } from './calculs';
 import {
     corpsFiche,
     depuisMois,
+    champsMad,
     ficheIncomplete,
     formulaireFiche,
     lignesEmail,
-    tauxEnregistre,
+    periodeConcernee,
     type FormulaireFiche
 } from './fiche';
 import HistoriqueMad from './HistoriqueMad.vue';
@@ -37,6 +39,22 @@ const libellesSamu = computed(() => magasin.localisations.map(l => l.libelle_cou
 
 const f = ref<FormulaireFiche>(formulaireFiche(props.ressource, magasin.affectations[props.ressource.id], samus.value));
 const historique = ref<PeriodeMad[]>([]);
+/** Période de MAD concernée par les champs de MAD de la fiche : celle d'aujourd'hui, à défaut la prochaine, la dernière */
+const periode = ref<PeriodeMad | undefined>();
+const jourIso = () => new Date().toLocaleDateString('sv-SE');
+watch(historique, h => {
+    periode.value = periodeConcernee(h, jourIso());
+    // Historique lu ou modifié : les champs de MAD reprennent la période concernée
+    if (periode.value) Object.assign(f.value, champsMad(props.ressource, periode.value));
+});
+/** Situation de la période concernée par rapport à aujourd'hui */
+const situation = computed(() => {
+    const p = periode.value;
+    if (!p) return '';
+    if (p.date_debut > jourIso()) return 'à venir';
+    if (p.date_fin && p.date_fin < jourIso()) return 'terminée';
+    return 'en cours';
+});
 const erreur = ref('');
 const champContacts = ref<HTMLTextAreaElement | null>(null);
 
@@ -61,11 +79,10 @@ async function enregistrer() {
         }
         return;
     }
-    const aujourdhui = new Date().toISOString().split('T')[0]!;
     try {
         await apiRessources.modifier(
             props.ressource.id,
-            corpsFiche(f.value, props.ressource, tauxEnregistre(historique.value, aujourdhui, props.ressource.taux))
+            corpsFiche(f.value, props.ressource, periode.value?.id ?? null)
         );
         try {
             await apiRessources.enregistrerAffectations(props.ressource.id, f.value.principal, f.value.secondaire);
@@ -139,45 +156,6 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
                 />
             </div>
 
-            <div class="fiche__volante">
-                <input id="editMadVolante" v-model="f.madVolante" type="checkbox" class="fiche__case" />
-                <label for="editMadVolante" class="fiche__volante-libelle">
-                    <svg class="fiche__avion" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="m22 2-7 20-4-9-9-4z" />
-                        <path d="M22 2 11 13" />
-                    </svg>
-                    MAD volante
-                    <span class="fiche__volante-aide"
-                        >(contrat à durée déterminée avec un nombre de jours maximum)</span
-                    >
-                </label>
-            </div>
-            <div
-                v-show="f.madVolante"
-                id="editMadVolanteFields"
-                class="fiche__ligne fiche__ligne--deux fiche__volante-champs"
-            >
-                <div class="form-group">
-                    <label for="editDateDebutMad">Date de début MAD *</label>
-                    <input id="editDateDebutMad" v-model="f.dateDebutMad" type="date" />
-                </div>
-                <div class="form-group">
-                    <label for="editDateFinMad">Date de fin MAD *</label>
-                    <input id="editDateFinMad" v-model="f.dateFinMad" type="date" />
-                </div>
-                <div class="form-group">
-                    <label for="editJoursMaxMad">Jours max sur la période *</label>
-                    <input
-                        id="editJoursMaxMad"
-                        :value="f.joursMaxMad"
-                        type="number"
-                        placeholder="Ex: 20"
-                        min="1"
-                        @input="f.joursMaxMad = ($event.target as HTMLInputElement).value"
-                    />
-                </div>
-            </div>
-
             <div class="fiche__ligne fiche__ligne--deux fiche__samus">
                 <SaisieSamu
                     v-model="f.principal"
@@ -197,6 +175,90 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
                     :samus="libellesSamu"
                     :lecture-seule="consultation"
                 />
+            </div>
+
+            <div class="fiche__contacts">
+                <label for="editContactsRh" class="fiche__contacts-libelle"
+                    >📧 Contacts RH de l'ES <span class="fiche__contacts-aide">(un email par ligne)</span></label
+                >
+                <textarea
+                    id="editContactsRh"
+                    ref="champContacts"
+                    v-model="f.contacts"
+                    placeholder="rh@etablissement.fr&#10;drh@hopital.fr"
+                    rows="3"
+                    class="fiche__contacts-champ"
+                    :class="{ 'fiche__contacts-champ--invalide': contactsInvalides.length }"
+                ></textarea>
+                <div v-if="contactsInvalides.length" class="fiche__contacts-erreur">
+                    Adresse(s) e-mail invalide(s) : {{ contactsInvalides.join(' · ') }}
+                </div>
+            </div>
+
+            <div id="editMadBloc" class="fiche__mad">
+                <p v-if="periode" id="editPeriodeConcernee" class="fiche__periode">
+                    Période de MAD concernée : du <strong>{{ dateFr(periode.date_debut) }}</strong> au
+                    <strong>{{ periode.date_fin ? dateFr(periode.date_fin) : 'sans date de fin' }}</strong>
+                    <span class="fiche__periode-etat">{{ situation }}</span>
+                </p>
+                <div class="fiche__ligne fiche__ligne--deux">
+                    <div class="form-group">
+                        <label for="editDateDebutMad">Date de début MAD<span v-if="f.madVolante"> *</span></label>
+                        <input id="editDateDebutMad" v-model="f.dateDebutMad" type="date" />
+                    </div>
+                    <div class="form-group">
+                        <label for="editDateFinMad">Date de fin MAD<span v-if="f.madVolante"> *</span></label>
+                        <input id="editDateFinMad" v-model="f.dateFinMad" type="date" />
+                    </div>
+                </div>
+                <div class="fiche__ligne fiche__ligne--trois fiche__mad-type">
+                    <div class="form-group fiche__volante-cellule">
+                        <!-- Même hauteur de libellé que les champs voisins : la case s'aligne sur leurs champs -->
+                        <span class="fiche__libelle-vide" aria-hidden="true">&nbsp;</span>
+                        <div class="fiche__volante">
+                            <input id="editMadVolante" v-model="f.madVolante" type="checkbox" class="fiche__case" />
+                            <label for="editMadVolante" class="fiche__volante-libelle">
+                                <svg class="fiche__avion" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="m22 2-7 20-4-9-9-4z" />
+                                    <path d="M22 2 11 13" />
+                                </svg>
+                                MAD volante
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editJoursMaxMad"
+                            >Nb de jours sur la période<span v-if="f.madVolante"> *</span></label
+                        >
+                        <input
+                            id="editJoursMaxMad"
+                            :value="f.joursMaxMad"
+                            type="number"
+                            placeholder="Ex: 20"
+                            min="1"
+                            :disabled="!f.madVolante"
+                            @input="f.joursMaxMad = ($event.target as HTMLInputElement).value"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="editTauxMad">Taux de MAD (%)<span v-if="!f.madVolante"> *</span></label>
+                        <input
+                            id="editTauxMad"
+                            :value="f.taux"
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="Ex: 50"
+                            :disabled="f.madVolante"
+                            @input="f.taux = ($event.target as HTMLInputElement).value"
+                        />
+                    </div>
+                </div>
+                <p class="fiche__volante-aide fiche__volante-note">
+                    Ces champs concernent la période indiquée ci-dessus. Pour une autre période, alterner MAD volante et
+                    MAD classique ou prolonger une période (avenant), utilisez l'historique des MAD ci-dessous : chaque
+                    période volante a son propre quota.
+                </p>
             </div>
 
             <div v-if="consultation" id="editAstreintesBlock" class="fiche__astreintes-lecture">
@@ -260,24 +322,6 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
                         ></span
                     >
                 </label>
-            </div>
-
-            <div class="fiche__contacts">
-                <label for="editContactsRh" class="fiche__contacts-libelle"
-                    >📧 Contacts RH de l'ES <span class="fiche__contacts-aide">(un email par ligne)</span></label
-                >
-                <textarea
-                    id="editContactsRh"
-                    ref="champContacts"
-                    v-model="f.contacts"
-                    placeholder="rh@etablissement.fr&#10;drh@hopital.fr"
-                    rows="3"
-                    class="fiche__contacts-champ"
-                    :class="{ 'fiche__contacts-champ--invalide': contactsInvalides.length }"
-                ></textarea>
-                <div v-if="contactsInvalides.length" class="fiche__contacts-erreur">
-                    Adresse(s) e-mail invalide(s) : {{ contactsInvalides.join(' · ') }}
-                </div>
             </div>
         </fieldset>
 
@@ -358,6 +402,43 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
     font-weight: normal;
     color: #888;
     font-size: 12px;
+}
+.fiche__periode {
+    margin: 0 0 8px;
+    padding: 6px 10px;
+    border-left: 3px solid #1565c0;
+    background: #e3f2fd;
+    border-radius: 4px;
+}
+.fiche__periode-etat {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #1565c0;
+    color: #fff;
+    font-size: 0.8em;
+}
+.fiche__mad {
+    margin: 12px 0;
+}
+.fiche__mad-type {
+    align-items: stretch;
+}
+.fiche__volante-cellule {
+    display: flex;
+    flex-direction: column;
+}
+.fiche__libelle-vide {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: bold;
+}
+.fiche__volante-cellule .fiche__volante {
+    flex: 1;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 .fiche__volante-champs {
     margin-top: 10px;

@@ -219,7 +219,7 @@ function appliquer(c: Cellule, r: Resultat) {
 async function executerAffectation(c: Cellule) {
     const ctx = await contexte();
     if (ctx.profil === 'admin' || ctx.profil === 'user' || ctx.profil === 'expert') p.modifiees.add(cleSession(c));
-    appliquer(c, changerAffectation(ctx, p.planning, c));
+    appliquer(c, changerAffectation(ctx, p.planning, p.historiqueMad[c.ressource.id], c));
 }
 
 async function clic(ligne: LigneCellule, ressource: Ressource, jour: JourGrille, periode: Periode) {

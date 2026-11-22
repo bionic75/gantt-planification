@@ -8,6 +8,8 @@ import {
     formulaireFiche,
     lignesEmail,
     particulariteIncomplete,
+    periodeConcernee,
+    periodeCouvrant,
     periodeIncomplete,
     tauxEnregistre
 } from './fiche';
@@ -70,8 +72,12 @@ describe('fiche', () => {
         expect(ficheIncomplete({ ...f, madVolante: true, dateFinMad: '2025-12-31' })?.message).toBe(
             'La date de fin de la MAD précède sa date de début.'
         );
-        // Dates de la MAD non volante non contrôlées
-        expect(ficheIncomplete({ ...f, dateFinMad: '2025-12-31' })).toBeNull();
+        // MAD classique : la fin ne peut pas précéder le début non plus, le taux est obligatoire
+        expect(ficheIncomplete({ ...f, dateFinMad: '2025-12-31' })?.message).toBe(
+            'La date de fin de la MAD précède sa date de début.'
+        );
+        expect(ficheIncomplete({ ...f, taux: '' })?.message).toBe('Renseignez le taux de MAD.');
+        expect(ficheIncomplete({ ...f, dateFinMad: '' })).toBeNull();
         expect(ficheIncomplete({ ...f, contacts: 'ok@x.fr\nko' })).toEqual({
             message:
                 'Contacts RH : adresse(s) e-mail invalide(s)\n\nko\n\nCorrigez ou supprimez ces lignes (une adresse par ligne).',
@@ -93,7 +99,7 @@ describe('fiche', () => {
 
     it('corps : date de fin de la ressource conservée, contacts nettoyés, astreintes en booléens', () => {
         const f = { ...formulaireFiche(ressource(), undefined, []), contacts: 'a@x.fr\nA@X.FR', joursMaxMad: '12' };
-        expect(corpsFiche(f, ressource(), 50)).toMatchObject({
+        expect(corpsFiche(f, ressource(), null)).toMatchObject({
             taux: 50,
             date_debut: '2026-01-01',
             date_fin: '2027-12-31',
@@ -105,10 +111,100 @@ describe('fiche', () => {
         });
     });
 
+    it('formulaire : dates, type, quota et taux de la période concernée', () => {
+        const volante = { id: 5, date_debut: '2026-11-01', date_fin: '2026-11-30', taux: 0, volante: 1, jours_max: 5 };
+        const f = formulaireFiche(ressource(), undefined, [], volante);
+        expect(f).toMatchObject({
+            madVolante: true,
+            dateDebutMad: '2026-11-01',
+            dateFinMad: '2026-11-30',
+            joursMaxMad: '5',
+            taux: '0'
+        });
+        const classique = { id: 6, date_debut: '2027-01-01', date_fin: null, taux: 50, volante: 0, jours_max: null };
+        expect(formulaireFiche(ressource(), undefined, [], classique)).toMatchObject({
+            madVolante: false,
+            dateDebutMad: '2027-01-01',
+            dateFinMad: '',
+            joursMaxMad: '',
+            taux: '50'
+        });
+        // Sans période : champs de la ressource
+        expect(formulaireFiche(ressource(), undefined, [])).toMatchObject({ dateDebutMad: '2026-01-01', taux: '50' });
+    });
+
+    it('formulaire : astreintes de la période concernée (HO, HNO, APD)', () => {
+        const periode = {
+            id: 7,
+            date_debut: '2026-11-01',
+            date_fin: null,
+            taux: 50,
+            volante: 0,
+            jours_max: null,
+            astreinte_ho: 1,
+            astreinte_hno: 0,
+            astreinte_apd: 1
+        };
+        // La ressource a HNO mais pas la période concernée : c'est la période qui compte
+        const f = formulaireFiche(ressource({ astreinte_volontaire: 1, astreinte_ho: 0 }), undefined, [], periode);
+        expect(f).toMatchObject({ astreinteHo: true, astreinteHno: false, astreinteApd: true });
+        expect(corpsFiche(f, ressource(), 7)).toMatchObject({
+            astreinte_ho: true,
+            astreinte_volontaire: false,
+            astreinte_apd: true
+        });
+        // Sans période : astreintes de la ressource
+        expect(formulaireFiche(ressource({ astreinte_volontaire: 1 }), undefined, [])).toMatchObject({
+            astreinteHno: true
+        });
+    });
+
+    it('corps : période visée, ses dates et son type ; MAD volante : taux nul', () => {
+        const volante = { id: 5, date_debut: '2026-11-01', date_fin: '2026-11-30', taux: 0, volante: 1, jours_max: 5 };
+        const f = formulaireFiche(ressource(), undefined, [], volante);
+        expect(corpsFiche(f, ressource(), 5)).toMatchObject({
+            periode_id: 5,
+            periode_debut: '2026-11-01',
+            periode_fin: '2026-11-30',
+            is_mad_volante: 1,
+            jours_max_mad: 5,
+            date_fin_mad: '2026-11-30',
+            taux: 0
+        });
+        // Date de début vide : les dates de la période ne sont pas envoyées
+        expect(corpsFiche({ ...f, dateDebutMad: '' }, ressource(), 5)).not.toHaveProperty('periode_debut');
+    });
+
     it('ancienneté du régime d’astreintes', () => {
         expect(depuisMois('2026-03-01', new Date('2026-11-02'))).toBe(' (depuis 8 mois)');
         expect(depuisMois('2026-11-01', new Date('2026-11-02'))).toBe('');
         expect(depuisMois(null)).toBe('');
+    });
+});
+
+describe('période de MAD concernée par la fiche', () => {
+    const h = [
+        { id: 1, date_debut: '2026-11-01', date_fin: '2026-11-30', taux: 0, volante: 1, jours_max: 5 },
+        { id: 2, date_debut: '2027-01-01', date_fin: null, taux: 50, volante: 0, jours_max: null }
+    ];
+    it("celle d'aujourd'hui ; à défaut la prochaine ; à défaut la dernière", () => {
+        expect(periodeConcernee(h, '2026-11-22')?.id).toBe(1);
+        expect(periodeConcernee(h, '2026-12-15')?.id).toBe(2);
+        expect(periodeConcernee(h, '2030-01-01')?.id).toBe(2);
+        expect(periodeConcernee(h, '2020-01-01')?.id).toBe(1);
+        expect(periodeConcernee([], '2026-11-22')).toBeUndefined();
+    });
+});
+
+describe('période de MAD en cours', () => {
+    const h = [
+        { id: 1, date_debut: '2026-11-01', date_fin: '2026-11-30', taux: 0, volante: 1, jours_max: 5 },
+        { id: 2, date_debut: '2027-01-01', date_fin: null, taux: 50, volante: 0, jours_max: null }
+    ];
+    it("seule la période qui couvre le jour est « en cours » : une période à venir sans date de fin ne l'est pas", () => {
+        expect(periodeCouvrant(h, '2026-11-22')?.id).toBe(1);
+        expect(periodeCouvrant(h, '2027-03-01')?.id).toBe(2);
+        expect(periodeCouvrant(h, '2026-12-15')).toBeUndefined();
     });
 });
 
@@ -120,6 +216,17 @@ describe('périodes et particularités', () => {
             'La date de fin doit être postérieure à la date de début'
         );
         expect(periodeIncomplete('2026-01-01', '', '0')).toBeNull();
+    });
+
+    it('période de MAD volante : date de fin et jours max obligatoires, taux sans objet', () => {
+        const message = 'Remplissez la date de fin et les jours max pour une MAD volante';
+        expect(periodeIncomplete('2026-01-01', '', '', true, '10')).toBe(message);
+        expect(periodeIncomplete('2026-01-01', '2026-06-30', '', true, '')).toBe(message);
+        expect(periodeIncomplete('2026-01-01', '2026-06-30', '', true, '0')).toBe(message);
+        expect(periodeIncomplete('2026-02-01', '2026-01-01', '', true, '10')).toBe(
+            'La date de fin doit être postérieure à la date de début'
+        );
+        expect(periodeIncomplete('2026-01-01', '2026-06-30', '', true, '10')).toBeNull();
     });
 
     it('contrôles des particularités (ajout et modification)', () => {

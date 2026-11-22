@@ -251,7 +251,39 @@ export function joursAttendus(
     return total.toFixed(1);
 }
 
-/** Jours de MAD volante consommés : demi-journées disponibles et affectées (hors 1 et 2) dans la période du contrat */
+/** Période de MAD volante : bornes (AAAA-MM-JJ) et nombre de jours maximum */
+export interface PeriodeVolante {
+    debut: string | null;
+    fin: string | null;
+    joursMax: number;
+}
+
+/**
+ * Période de MAD volante d'une ressource à une date : celle de l'historique qui la couvre ; à défaut (repli) la
+ * prochaine, puis la dernière. Sans historique, la MAD volante enregistrée sur la ressource. Null : MAD classique.
+ */
+export function periodeVolante(
+    r: Ressource,
+    historique: PeriodeMadGrille[] | undefined,
+    date: string,
+    repli = true
+): PeriodeVolante | null {
+    if (!historique?.length) {
+        return r.is_mad_volante ? { debut: r.date_debut, fin: r.date_fin_mad, joursMax: r.jours_max_mad || 0 } : null;
+    }
+    const volantes = historique
+        .filter(p => p.volante)
+        .sort((a, b) => a.date_debut.localeCompare(b.date_debut))
+        .map(p => ({ debut: p.date_debut, fin: p.date_fin, joursMax: p.jours_max || 0 }));
+    const couvre = volantes.find(p => p.debut <= date && (!p.fin || p.fin >= date));
+    if (couvre || !repli) return couvre ?? null;
+    return volantes.find(p => p.debut > date) ?? volantes[volantes.length - 1] ?? null;
+}
+
+/**
+ * Jours de MAD volante placés dans [debut, fin] : demi-journées disponibles (« 2 »), affectées ou non, car une
+ * affectation suppose une disponibilité. C'est ce nombre que le quota de la période limite.
+ */
 export function joursMadVolanteConsommes(
     planning: Planning,
     ressourceId: number,
@@ -260,13 +292,12 @@ export function joursMadVolanteConsommes(
 ): number {
     let consommes = 0;
     for (const [cle, valeur] of Object.entries(planning)) {
-        const m = /^(\d+)_activity_(\d{4}-\d{2}-\d{2})_(AM|PM)$/.exec(cle);
-        if (!m || parseInt(m[1]!) !== ressourceId) continue;
+        const m = /^(\d+)_available_(\d{4}-\d{2}-\d{2})_(AM|PM)$/.exec(cle);
+        if (!m || parseInt(m[1]!) !== ressourceId || valeur !== '2') continue;
         const date = m[2]!;
         if (debut && date < debut.slice(0, 10)) continue;
         if (fin && date > fin.slice(0, 10)) continue;
-        if (!valeur || valeur === '1' || valeur === '2') continue;
-        if (planning[`${ressourceId}_available_${date}_${m[3]}`] === '2') consommes += 0.5;
+        consommes += 0.5;
     }
     return consommes;
 }

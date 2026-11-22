@@ -11,7 +11,7 @@ import { emettre } from '@/evenements';
 import { dateFr } from './calculs';
 import FenetreParticularites from './FenetreParticularites.vue';
 import { useRessourcesStore } from './magasin';
-import { periodeIncomplete } from './fiche';
+import { periodeCouvrant, periodeConcernee, periodeIncomplete } from './fiche';
 
 const props = defineProps<{ ressource: Ressource; consultation: boolean }>();
 /** Historique lu (taux enregistré avec la fiche) */
@@ -37,29 +37,72 @@ async function charger() {
 onMounted(charger);
 
 const triees = computed(() => [...historique.value].sort((a, b) => a.date_debut.localeCompare(b.date_debut)));
+/** Période en cours aujourd'hui (une période à venir, même sans date de fin, ne l'est pas) */
+const enCours = computed(() => periodeCouvrant(historique.value, new Date().toLocaleDateString('sv-SE'))?.id);
 
 // ---------- Période ----------
 
 /** Période saisie : identifiant (modification) ou null (ajout) */
-const saisie = ref<{ id: number | null; debut: string; fin: string; taux: string } | null>(null);
+const saisie = ref<{
+    id: number | null;
+    debut: string;
+    fin: string;
+    taux: string;
+    volante: boolean;
+    joursMax: string;
+    astreinteHo: boolean;
+    astreinteHno: boolean;
+    astreinteApd: boolean;
+} | null>(null);
 const messagePeriode = ref('');
 
 function ajouter() {
     messagePeriode.value = '';
-    saisie.value = { id: null, debut: '', fin: '', taux: '' };
+    // Astreintes proposées : celles de la période concernée (continuité d'une période à la suivante)
+    const modele = periodeConcernee(historique.value, new Date().toLocaleDateString('sv-SE'));
+    saisie.value = {
+        id: null,
+        debut: '',
+        fin: '',
+        taux: '',
+        volante: false,
+        joursMax: '',
+        astreinteHo: !!modele?.astreinte_ho,
+        astreinteHno: !!modele?.astreinte_hno,
+        astreinteApd: !!modele?.astreinte_apd
+    };
 }
 
 function modifier(p: PeriodeMad) {
     messagePeriode.value = '';
-    saisie.value = { id: p.id, debut: p.date_debut || '', fin: p.date_fin || '', taux: String(p.taux) };
+    saisie.value = {
+        id: p.id,
+        debut: p.date_debut || '',
+        fin: p.date_fin || '',
+        taux: String(p.taux),
+        volante: !!p.volante,
+        joursMax: p.jours_max ? String(p.jours_max) : '',
+        astreinteHo: !!p.astreinte_ho,
+        astreinteHno: !!p.astreinte_hno,
+        astreinteApd: !!p.astreinte_apd
+    };
 }
 
 async function enregistrer() {
     const s = saisie.value;
     if (!s) return;
-    messagePeriode.value = periodeIncomplete(s.debut, s.fin, s.taux) ?? '';
+    messagePeriode.value = periodeIncomplete(s.debut, s.fin, s.taux, s.volante, s.joursMax) ?? '';
     if (messagePeriode.value) return;
-    const corps = { taux: parseFloat(s.taux), date_debut: s.debut, date_fin: s.fin || null };
+    const corps = {
+        taux: s.volante ? 0 : parseFloat(s.taux),
+        date_debut: s.debut,
+        date_fin: s.fin || null,
+        volante: s.volante,
+        jours_max: s.volante ? parseInt(s.joursMax) : null,
+        astreinte_ho: s.astreinteHo,
+        astreinte_hno: s.astreinteHno,
+        astreinte_apd: s.astreinteApd
+    };
     try {
         if (s.id) await apiRessources.modifierPeriode(props.ressource.id, s.id, corps);
         else await apiRessources.ajouterPeriode(props.ressource.id, corps);
@@ -96,17 +139,19 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
 
 <template>
     <div class="historique">
-        <h4 class="historique__titre">📊 Historique des taux de MAD</h4>
+        <h4 class="historique__titre">📊 Historique des MAD</h4>
         <div id="madHistoryContainer" class="historique__liste">
             <p v-if="etat === 'chargement'" class="historique__info">Chargement...</p>
             <p v-else-if="etat === 'erreur'" class="historique__erreur">Erreur de chargement</p>
-            <p v-else-if="!triees.length" class="historique__vide">Aucun historique de taux MAD</p>
+            <p v-else-if="!triees.length" class="historique__vide">Aucune période de MAD</p>
             <table v-else class="historique__tableau">
                 <thead>
                     <tr>
                         <th>Date début</th>
                         <th>Date fin</th>
+                        <th class="historique__centre">Type</th>
                         <th class="historique__centre">Taux</th>
+                        <th class="historique__centre">Astreintes</th>
                         <th v-if="!consultation" class="historique__centre">Actions</th>
                     </tr>
                 </thead>
@@ -115,10 +160,26 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                         <td>{{ dateFr(p.date_debut) }}</td>
                         <td>
                             <template v-if="p.date_fin">{{ dateFr(p.date_fin) }}</template>
-                            <em v-else class="historique__en-cours">En cours</em>
+                            <em v-else class="historique__en-cours">Sans date de fin</em>
+                        </td>
+                        <td class="historique__centre">
+                            <span v-if="p.volante" class="historique__type historique__type--volante"
+                                >✈️ Volante · {{ p.jours_max }} j max</span
+                            >
+                            <span v-else class="historique__type">Classique</span>
+                            <span v-if="p.id === enCours" class="historique__badge">En cours</span>
                         </td>
                         <td class="historique__taux" :class="{ 'historique__taux--nul': p.taux === 0 }">
-                            {{ p.taux }}%
+                            <template v-if="p.volante">–</template>
+                            <template v-else>{{ p.taux }}%</template>
+                        </td>
+                        <td class="historique__centre">
+                            <span v-if="!p.astreinte_ho && !p.astreinte_hno && !p.astreinte_apd">–</span>
+                            <template v-else>
+                                <span v-if="p.astreinte_ho" class="historique__astreinte">HO</span>
+                                <span v-if="p.astreinte_hno" class="historique__astreinte">HNO</span>
+                                <span v-if="p.astreinte_apd" class="historique__astreinte">APD</span>
+                            </template>
                         </td>
                         <td v-if="!consultation" class="historique__centre">
                             <button
@@ -153,14 +214,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
         </div>
         <p v-if="message" :key="message" role="alert" class="historique__erreur">{{ message }}</p>
         <button v-if="!consultation" type="button" class="historique__ajouter" @click="ajouter">
-            ➕ Ajouter un taux de MAD
+            ➕ Ajouter une période
         </button>
     </div>
 
     <AppModal
         id="madHistoryModal"
         :opened="!!saisie"
-        :title="saisie?.id ? 'Modifier le taux de MAD' : 'Ajouter un taux de MAD'"
+        :title="saisie?.id ? 'Modifier la période de MAD' : 'Ajouter une période'"
         class="periode"
         @close="saisie = null"
     >
@@ -176,6 +237,28 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                 <input id="madDateFin" v-model="saisie.fin" type="date" class="periode__champ" />
             </div>
             <div class="form-group">
+                <label for="madType">Type de MAD</label>
+                <select id="madType" v-model="saisie.volante" class="periode__champ">
+                    <option :value="false">MAD classique (taux)</option>
+                    <option :value="true">MAD volante (nombre de jours maximum)</option>
+                </select>
+            </div>
+            <div v-if="saisie.volante" class="form-group">
+                <label for="madJoursMax"
+                    >Jours max sur la période *
+                    <span class="periode__aide">(le quota repart à zéro à chaque période)</span></label
+                >
+                <input
+                    id="madJoursMax"
+                    :value="saisie.joursMax"
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 20"
+                    class="periode__champ"
+                    @input="saisie.joursMax = texte($event)"
+                />
+            </div>
+            <div v-else class="form-group">
                 <label for="madTaux">Taux de MAD (%) *</label>
                 <input
                     id="madTaux"
@@ -188,6 +271,21 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                     @input="saisie.taux = texte($event)"
                 />
             </div>
+            <fieldset class="periode__astreintes">
+                <legend>🔔 Astreintes sur cette période</legend>
+                <label class="periode__case"
+                    ><input id="madAstreinteHo" v-model="saisie.astreinteHo" type="checkbox" /> Astreintes HO
+                    <span class="periode__aide">(jours de la semaine, heures ouvrées)</span></label
+                >
+                <label class="periode__case"
+                    ><input id="madAstreinteHno" v-model="saisie.astreinteHno" type="checkbox" /> Astreintes HNO
+                    <span class="periode__aide">(jours et heures non ouvrés)</span></label
+                >
+                <label class="periode__case"
+                    ><input id="madAstreinteApd" v-model="saisie.astreinteApd" type="checkbox" /> Astreintes «
+                    Accompagnement post démarrage »</label
+                >
+            </fieldset>
             <p v-if="messagePeriode" :key="messagePeriode" role="alert" class="historique__erreur">
                 {{ messagePeriode }}
             </p>
@@ -249,6 +347,25 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
 .historique__tableau tbody tr {
     border-bottom: 1px solid #e0e0e0;
 }
+.historique__astreinte {
+    display: inline-block;
+    margin: 0 2px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #ede7f6;
+    color: #4527a0;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+.historique__badge {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #2e7d32;
+    color: #fff;
+    font-size: 0.75em;
+    white-space: nowrap;
+}
 .historique__en-cours {
     color: #999;
 }
@@ -256,6 +373,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
     text-align: center;
     font-weight: bold;
     color: #2e7d32;
+}
+.historique__type {
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+.historique__type--volante {
+    color: #0d47a1;
+    font-weight: 600;
 }
 .historique__tableau .historique__taux--nul {
     color: #e74c3c;
@@ -290,6 +415,26 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
     color: white;
     padding: 8px 15px;
     font-size: 12px;
+}
+.periode__astreintes {
+    margin: 8px 0 0;
+    padding: 6px 10px;
+    border: 1px solid #ffe0b2;
+    background: #fff8e1;
+    border-radius: 6px;
+}
+.periode__astreintes legend {
+    padding: 0 4px;
+    font-weight: 600;
+}
+.periode__case {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+}
+.periode__case input {
+    width: auto;
 }
 .periode__aide {
     font-size: 11px;

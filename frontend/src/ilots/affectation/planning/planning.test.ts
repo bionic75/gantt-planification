@@ -41,6 +41,54 @@ const contexte = (deploiements: Deploiement[], masquees: string[] = []): Context
     masquees: new Set(masquees)
 });
 
+describe('lignes de congés et de jours fériés', () => {
+    const p = dep({ periods: {} });
+    const cols = construireColonnes('day', '2031-03-01', '2031-03-12').cols;
+    const tri = new Trigrammes(cols, 'day');
+    const avec = (zone: string | null): ContexteGrille => ({
+        ...contexte([p]),
+        repos: {
+            zoneDe: () => zone,
+            conges: { B: [{ start: '2031-03-04', end: '2031-03-10' }] },
+            feries: [{ date: '2031-03-03', libelle: 'Jour test' }]
+        }
+    });
+    const cellule = (jour: string, c: ContexteGrille) =>
+        contenuCellule(
+            c,
+            tri,
+            p,
+            cols.find(x => x.key === jour)!
+        );
+
+    it('jour férié : ligne fine avec son libellé', () => {
+        const html = cellule('2031-03-03', avec('B'));
+        expect(html).toContain('aff-repos ferie');
+        expect(html).toContain('Jour test');
+    });
+    it('congés de la zone du SAMU seulement', () => {
+        expect(cellule('2031-03-05', avec('B'))).toContain('aff-repos conge');
+        expect(cellule('2031-03-05', avec('A'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-05', avec(null))).not.toContain('aff-repos');
+        // Fin exclue (reprise des cours)
+        expect(cellule('2031-03-10', avec('B'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-09', avec('B'))).toContain('aff-repos conge');
+    });
+    it('couleur propre à chaque zone (comme dans la planification)', () => {
+        expect(cellule('2031-03-05', avec('B'))).toContain('zone-B');
+    });
+    it('masquables par la légende : « _conges » et « _feries »', () => {
+        const sans = (cle: string) => ({ ...avec('B'), masquees: new Set([cle]) });
+        expect(cellule('2031-03-05', sans('_conges'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-03', sans('_conges'))).toContain('aff-repos ferie');
+        expect(cellule('2031-03-03', sans('_feries'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-05', sans('_feries'))).toContain('aff-repos conge');
+    });
+    it('sans données : cellule inchangée', () => {
+        expect(cellule('2031-03-05', contexte([p]))).toBe('');
+    });
+});
+
 describe('dates', () => {
     it('semaines ISO, lundi, valeur de champ semaine', () => {
         expect(semaineIso('2031-03-03')).toEqual({ week: 10, year: 2031 });

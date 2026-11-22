@@ -691,6 +691,13 @@ model ResourceMadHistory {
   taux        Float
   date_debut  String
   date_fin    String?
+  /// 1 : période de MAD volante (taux 0, nombre de jours maximum) ; 0 : MAD classique (taux)
+  volante     Int?      @default(0)
+  jours_max   Int?
+  /// Astreintes de la période : HO, HNO (astreinte_volontaire de la ressource) et accompagnement post démarrage
+  astreinte_ho  Int? @default(0)
+  astreinte_hno Int? @default(0)
+  astreinte_apd Int? @default(0)
   created_at  String? @default(dbgenerated("to_char(timezone('UTC'::text, now()), 'YYYY-MM-DD HH24:MI:SS'::text)"))
   created_by  Int?
 

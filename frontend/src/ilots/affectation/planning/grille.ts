@@ -30,10 +30,51 @@ export interface ContexteGrille {
     config: ConfigAffectation | null;
     ressources: RessourceAffectable[];
     externes: RessourceAffectable[];
-    /** Étapes masquées ; « _tri » : trigrammes masqués ; « _past » : SAMU déjà en service masqués */
+    /** Étapes masquées ; « _tri » : trigrammes masqués ; « _past » : SAMU déjà en service masqués ; « _conges » et « _feries » : lignes de congés scolaires et de jours fériés masquées */
     masquees: Set<string>;
     /** Rendu d'impression : barres non cliquables */
     impression?: boolean;
+    /** Congés scolaires et jours fériés (administration), pour la ligne fine de chaque SAMU */
+    repos?: Repos;
+}
+
+/** Jours de repos affichés : congés scolaires par zone (A, B, C, d'après le département du SAMU) et jours fériés */
+export interface Repos {
+    zoneDe: (idDeploiement: number) => string | null;
+    conges: Record<string, { start: string; end: string }[] | undefined>;
+    feries: { date: string; endDate?: string | null; libelle: string }[];
+}
+
+/** Ligne fine (congés scolaires de la zone, jours fériés) sur la partie de la colonne qu'elle couvre */
+function ligneRepos(repos: Repos, p: Deploiement, c: Colonne, masque: Set<string>): string {
+    const span = (utcMs(c.to) - utcMs(c.from)) / 86400000 + 1;
+    const segment = (debut: string, fin: string, classe: string, titre: string) => {
+        const a = debut > c.from ? debut : c.from;
+        const b = fin < c.to ? fin : c.to;
+        if (a > b) return '';
+        const gauche = ((utcMs(a) - utcMs(c.from)) / 86400000 / span) * 100;
+        const largeur = (((utcMs(b) - utcMs(a)) / 86400000 + 1) / span) * 100;
+        return `<span class="aff-repos ${classe}" style="left:${gauche.toFixed(2)}%;width:${largeur.toFixed(2)}%" title="${esc(titre)}"></span>`;
+    };
+    const zone = repos.zoneDe(p.id);
+    const conges = zone && !masque.has('_conges') ? (repos.conges[zone] ?? []) : [];
+    return (
+        conges
+            .map(x => {
+                // Fin exclue (reprise des cours), comme dans le reste de l'application
+                const dernier = isoMs(utcMs(x.end) - 86400000);
+                return segment(
+                    x.start,
+                    dernier,
+                    `conge zone-${zone}`,
+                    `Congés scolaires zone ${zone} : ${jourFr(x.start)} → ${jourFr(dernier)}`
+                );
+            })
+            .join('') +
+        (masque.has('_feries') ? [] : repos.feries)
+            .map(f => segment(f.date, f.endDate || f.date, 'ferie', `${f.libelle} : ${jourFr(f.date)}`))
+            .join('')
+    );
 }
 
 export const definitionEtape = (ctx: ContexteGrille, k: string) =>
@@ -202,9 +243,10 @@ export function contenuCellule(ctx: ContexteGrille, tri: Trigrammes, p: Deploiem
     // Début du projet : trait vertical au bord gauche du jour, aligné sur le début des barres
     if (p.date_debut >= c.from && p.date_debut <= c.to)
         jalons += `<span class="aff-mk start" style="left:${position(p.date_debut).toFixed(2)}%" title="Début du projet : ${jourFr(p.date_debut)}"><i style="background:#263238"></i></span>`;
+    const repos = ctx.repos ? ligneRepos(ctx.repos, p, c, masque) : '';
     return ph || st || jalons
-        ? `${jalons}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>`
-        : '';
+        ? `${repos}${jalons}<div class="aff-pc"><div class="ph">${ph}</div><div class="st">${st}</div></div>`
+        : repos;
 }
 
 export type CleTri = 'samu' | 'chef' | 'mes' | 'mep';
