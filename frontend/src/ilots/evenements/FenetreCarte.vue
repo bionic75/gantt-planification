@@ -29,15 +29,7 @@ import { centreDe, couleursDepartements, type Contours } from './departements';
 import { genererMp4, mp4Disponible, pair } from './mp4';
 import { placerEtiquettes, type EtiquetteAPlacer } from './etiquettes';
 import { ENCARTS, projectionFranceEtEncarts, rapprocherOutreMer } from './outre-mer';
-import {
-    genererGif,
-    LIBELLE_COMPTEUR_GIF,
-    NOM_FICHIER_GIF,
-    nomFichierGif,
-    telecharger,
-    tracerContours,
-    type Projection
-} from './gif';
+import { genererGif, NOM_FICHIER_GIF, nomFichierGif, telecharger, tracerContours, type Projection } from './gif';
 import {
     dateALaPositionCompressee,
     datesDeMisesEnService,
@@ -47,6 +39,16 @@ import {
     nbMisesEnService,
     plageMisesEnService
 } from './mises-en-service';
+import ConceptionGif from './ConceptionGif.vue';
+import {
+    cadrerPoint,
+    centreCadre,
+    couleurValide,
+    LIBELLE_COMPTEUR_DEFAUT,
+    miseEnPageParDefaut,
+    type MiseEnPage
+} from './mise-en-page';
+import { dessinerMiseEnPage, type Rendu } from './mise-en-page-rendu';
 import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
 
@@ -866,10 +868,12 @@ function arreter() {
 // ---------- Export GIF ----------
 
 const exportGif = ref({ enCours: false, texte: '' });
-/** Titre inscrit en haut du GIF (facultatif) */
-const titreGif = ref('');
-/** Texte après « n / total » sous la date du GIF, et nom du fichier téléchargé */
-const libelleCompteurGif = ref(LIBELLE_COMPTEUR_GIF);
+/** Mise en page de l'image (titre, légende, compteur, logos), réglée dans la fenêtre de conception */
+const miseEnPage = ref<MiseEnPage>(miseEnPageParDefaut());
+const conceptionOuverte = ref(false);
+/** Images des logos importés, par identifiant (hors état réactif, partagées avec la fenêtre de conception) */
+const imagesLogos = new Map<number, HTMLImageElement>();
+/** Nom du fichier téléchargé (le texte du compteur se règle dans la fenêtre de mise en page) */
 const nomFichier = ref('');
 /** Tailles (largeur en pixels) et définitions (nombre d'images : plus d'images, animation plus fluide) proposées */
 const TAILLES_GIF = [
@@ -905,14 +909,15 @@ function fondDuGif(
     projeter: Projection,
     contours: Contours,
     regions: Contours | null,
-    encarts: boolean
+    encarts: boolean,
+    couleurMer: string
 ) {
     const c = document.createElement('canvas');
     c.width = largeur;
     c.height = hauteur;
     const ctx = c.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('Canvas indisponible');
-    ctx.fillStyle = STYLE_GIF.mer;
+    ctx.fillStyle = couleurMer;
     ctx.fillRect(0, 0, largeur, hauteur);
     const departements = contoursAffiches(contours, encarts);
     const decalage = Math.max(2, Math.round(largeur * 0.005));
@@ -1007,130 +1012,119 @@ function etiquettesGif(
     ctx.restore();
 }
 
-/** Hauteur du bandeau du titre (0 sans titre) : la carte est cadrée en dessous */
-function hauteurBandeauTitre(hauteur: number, titre: string) {
-    if (!titre) return 0;
-    const taille = Math.round(hauteur * 0.05);
-    return Math.round(taille * 1.1 + Math.round(taille * 0.5) * 1.6);
-}
-
-/** Titre (facultatif) en haut de l'image ; date et compteur dans le coin inférieur droit */
-function bandeauGif(
-    ctx: CanvasRenderingContext2D,
-    largeur: number,
-    hauteur: number,
-    date: string,
-    nb: number,
-    total: number,
-    titre: string,
-    libelle: string
+/** Statuts de la légende : ceux des départements colorés à la fin de la période, avec leur couleur */
+function statutsDeLegende(
+    donnees: NonNullable<typeof donneesDeploiements>,
+    contours: Contours,
+    periode: NonNullable<typeof plage>
 ) {
-    const taille = Math.round(hauteur * 0.05);
-    const marge = Math.round(taille * 0.5);
-    ctx.save();
-    ctx.textBaseline = 'top';
-    if (titre) {
-        ctx.font = `bold ${Math.round(taille * 1.1)}px sans-serif`;
-        ctx.fillStyle = 'rgba(26,35,126,0.92)';
-        ctx.fillRect(0, 0, largeur, hauteurBandeauTitre(hauteur, titre));
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(titre, largeur / 2, marge * 0.8, largeur - marge * 2);
+    const finale = misesEnServiceA(donnees.deployments, donnees.statuses, periode, periode.fin);
+    const parStatut = new Map<string, { statut: string; couleur: string; masque: boolean }>();
+    for (const c of couleursDepartements(finale, donnees.statuses, contours).values()) {
+        if (!parStatut.has(c.statut))
+            parStatut.set(c.statut, {
+                statut: c.statut,
+                couleur: c.couleur,
+                masque: statutsMasques.value.has(c.statut)
+            });
     }
-    const texte1 = dateFr(date);
-    const texte2 = `${nb} / ${total} ${libelle}`;
-    const police2 = `${Math.round(taille * 0.6)}px sans-serif`;
-    ctx.font = `bold ${taille}px sans-serif`;
-    const l1 = ctx.measureText(texte1).width;
-    ctx.font = police2;
-    const l2 = ctx.measureText(texte2).width;
-    const largeurBoite = Math.max(l1, l2) + marge * 2;
-    const hauteurBoite = taille * 1.9 + marge * 1.5;
-    const gauche = largeur - marge - largeurBoite;
-    const haut = hauteur - marge - hauteurBoite;
-    ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    ctx.fillRect(gauche, haut, largeurBoite, hauteurBoite);
-    ctx.textAlign = 'right';
-    ctx.font = `bold ${taille}px sans-serif`;
-    ctx.fillStyle = '#1a237e';
-    ctx.fillText(texte1, largeur - marge * 2, haut + marge * 0.6);
-    ctx.font = police2;
-    ctx.fillStyle = '#37474f';
-    ctx.fillText(texte2, largeur - marge * 2, haut + marge * 0.6 + taille * 1.2);
-    ctx.restore();
+    return [...parStatut.values()];
 }
 
-/** Animation des mises en service (GIF ou vidéo MP4), d'après la vue actuelle de la carte */
-async function exporterAnimation(format: 'gif' | 'mp4') {
+/**
+ * Fond de carte cadré (en laissant `margeHaut` libre au-dessus) et dessin d'une image : celui de l'export, aussi
+ * utilisé par l'aperçu de la fenêtre de conception. Null (message affiché) s'il n'y a rien à animer.
+ */
+async function creerRendu(largeur: number, margeHaut: number): Promise<Rendu | null> {
     const cible = carte;
-    if (!cible || exportGif.value.enCours) return;
+    if (!cible || !(await preparerLecture())) return null;
+    const donnees = donneesDeploiements;
+    const contours = contoursCharges;
+    const periode = plage;
+    if (!donnees || !contours || !periode) return null;
+    const regions = await contoursRegions();
+    const conteneurCarte = cible.getContainer();
+    const echelle = largeur / (conteneurCarte.clientWidth || 1);
+    const hauteur = pair(Math.round(conteneurCarte.clientHeight * echelle));
+    // La carte est cadrée sous l'espace libre du haut (sinon le titre recouvre le nord de la France)
+    const haut = Math.round(hauteur * margeHaut);
+    const reduction = (hauteur - haut) / hauteur;
+    // Outre-mer demandée : France entière et encarts cadrés d'office ; sinon, vue actuelle de la carte
+    const encarts = franceSeule.value || outreMerGif.value;
+    const projeterAuto: Projection =
+        outreMerGif.value && !franceSeule.value
+            ? projectionFranceEtEncarts(largeur, hauteur, haut)
+            : (lng, lat) => {
+                  const pt = cible.latLngToContainerPoint([lat, lng]);
+                  return [largeur / 2 + (pt.x * echelle - largeur / 2) * reduction, haut + pt.y * echelle * reduction];
+              };
+    const contoursDuGif = contoursAffiches(contours, encarts);
+    // Carte déplacée et zoomée dans la fenêtre de conception : fond recalculé quand le cadrage change
+    const image = { largeur, hauteur };
+    const centre = centreCadre(image, margeHaut);
+    let vue: { cle: string; projeter: Projection; base: HTMLCanvasElement } | null = null;
+    const vueDe = (m: MiseEnPage) => {
+        const c = m.carte;
+        const mer = couleurValide(m.couleurFond, STYLE_GIF.mer);
+        const cle = `${c.x}|${c.y}|${c.zoom}|${mer}`;
+        if (vue?.cle !== cle) {
+            const projeter: Projection = (lng, lat) => cadrerPoint(projeterAuto(lng, lat), c, image, centre);
+            vue = { cle, projeter, base: fondDuGif(largeur, hauteur, projeter, contours, regions, encarts, mer) };
+        }
+        return vue;
+    };
+    const statuts = statutsDeLegende(donnees, contours, periode);
+    return {
+        largeur,
+        hauteur,
+        dateApercu: periode.fin,
+        dessiner: (ctx, date, m) => {
+            const { projeter, base } = vueDe(m);
+            const affiches = misesEnServiceA(donnees.deployments, donnees.statuses, periode, date);
+            ctx.drawImage(base, 0, 0);
+            const couleursDuJour = couleursDepartements(affiches, donnees.statuses, contours, statutsMasques.value);
+            for (const [code, c] of couleursDuJour)
+                tracerContours(
+                    ctx,
+                    contoursDuGif,
+                    projeter,
+                    { trait: STYLE_GIF.limite, epaisseur: 1, remplissage: c.couleur },
+                    new Set([code])
+                );
+            etiquettesGif(ctx, largeur, hauteur, contoursDuGif, projeter, couleursDuJour);
+            return dessinerMiseEnPage(ctx, largeur, hauteur, m, {
+                images: imagesLogos,
+                statuts,
+                compteur: {
+                    date: dateFr(date),
+                    detail: `${affiches.length} / ${lecture.value.total} ${m.compteur.libelle.trim() || LIBELLE_COMPTEUR_DEFAUT}`
+                }
+            });
+        }
+    };
+}
+
+/** Animation des mises en service (GIF ou vidéo MP4), d'après la vue actuelle de la carte et la mise en page choisie */
+async function exporterAnimation(format: 'gif' | 'mp4') {
+    if (!carte || exportGif.value.enCours) return;
     pause();
     const nomFormat = format === 'gif' ? 'GIF' : 'MP4';
     exportGif.value = { enCours: true, texte: `${nomFormat} : préparation…` };
     try {
-        if (!(await preparerLecture())) return;
-        const donnees = donneesDeploiements;
-        const contours = contoursCharges;
+        const rendu = await creerRendu(tailleGif.value, miseEnPage.value.margeHaut);
         const periode = plage;
-        if (!donnees || !contours || !periode) return;
-        const regions = await contoursRegions();
-        const largeur = tailleGif.value;
-        const conteneurCarte = cible.getContainer();
-        const echelle = largeur / conteneurCarte.clientWidth;
-        const hauteur = pair(Math.round(conteneurCarte.clientHeight * echelle));
-        const titre = titreGif.value.trim();
-        // La carte est cadrée sous le bandeau du titre (sinon il recouvre le nord de la France)
-        const haut = hauteurBandeauTitre(hauteur, titre);
-        const reduction = (hauteur - haut) / hauteur;
-        // Outre-mer demandée : France entière et encarts cadrés d'office ; sinon, vue actuelle de la carte
-        const encarts = franceSeule.value || outreMerGif.value;
-        const projeter: Projection =
-            outreMerGif.value && !franceSeule.value
-                ? projectionFranceEtEncarts(largeur, hauteur, haut)
-                : (lng, lat) => {
-                      const pt = cible.latLngToContainerPoint([lat, lng]);
-                      return [
-                          largeur / 2 + (pt.x * echelle - largeur / 2) * reduction,
-                          haut + pt.y * echelle * reduction
-                      ];
-                  };
-        const contoursDuGif = contoursAffiches(contours, encarts);
-        const base = fondDuGif(largeur, hauteur, projeter, contours, regions, encarts);
+        if (!rendu || !periode) return;
         const dates = compresser.value
             ? datesDesImagesCompressees(datesMes, definitionGif.value)
             : datesDesImages(periode, definitionGif.value);
         const generer = format === 'gif' ? genererGif : genererMp4;
         const blob = await generer({
-            largeur,
-            hauteur,
+            largeur: rendu.largeur,
+            hauteur: rendu.hauteur,
             images: dates.length,
             delaiMs: 250,
             pauseFinMs: 2000,
-            dessiner: (i, ctx) => {
-                const date = dates[i] ?? periode.fin;
-                const affiches = misesEnServiceA(donnees.deployments, donnees.statuses, periode, date);
-                ctx.drawImage(base, 0, 0);
-                const couleursDuJour = couleursDepartements(affiches, donnees.statuses, contours, statutsMasques.value);
-                for (const [code, c] of couleursDuJour)
-                    tracerContours(
-                        ctx,
-                        contoursDuGif,
-                        projeter,
-                        { trait: STYLE_GIF.limite, epaisseur: 1, remplissage: c.couleur },
-                        new Set([code])
-                    );
-                etiquettesGif(ctx, largeur, hauteur, contoursDuGif, projeter, couleursDuJour);
-                bandeauGif(
-                    ctx,
-                    largeur,
-                    hauteur,
-                    date,
-                    affiches.length,
-                    lecture.value.total,
-                    titre,
-                    libelleCompteurGif.value.trim() || LIBELLE_COMPTEUR_GIF
-                );
-            },
+            dessiner: (i, ctx) => void rendu.dessiner(ctx, dates[i] ?? periode.fin, miseEnPage.value),
             progression: (i, total) => (exportGif.value.texte = `${nomFormat} : image ${i} / ${total}`)
         });
         telecharger(blob, nomFichierGif(nomFichier.value, format));
@@ -1401,19 +1395,18 @@ onBeforeUnmount(() => {
             />
             <span id="mapPlayDate" class="ev-carte__date">{{ dateLecture }}</span>
             <span id="mapPlayCount" class="ev-carte__compte">{{ compteLecture }}</span>
+            <button
+                id="mapGifConception"
+                type="button"
+                class="ev-carte__conception"
+                title="Placer à la souris le titre, la légende, le compteur et les logos sur un aperçu de l'image"
+                @click="conceptionOuverte = true"
+            >
+                🎨 Mise en page
+            </button>
             <details class="ev-carte__options-gif">
                 <summary>Options du GIF / MP4</summary>
                 <div class="ev-carte__options-gif-champs">
-                    <label
-                        >Titre (en haut de l'image)
-                        <input
-                            id="mapGifTitle"
-                            v-model="titreGif"
-                            type="text"
-                            maxlength="80"
-                            placeholder="Facultatif"
-                        />
-                    </label>
                     <label class="ev-carte__case-gif"
                         ><input id="mapGifOutreMer" v-model="outreMerGif" type="checkbox" />
                         Outre-mer en encarts (cadre la France entière)
@@ -1431,10 +1424,6 @@ onBeforeUnmount(() => {
                                 {{ d.libelle }}
                             </option>
                         </select>
-                    </label>
-                    <label
-                        >Texte du compteur
-                        <input id="mapGifCounter" v-model="libelleCompteurGif" type="text" maxlength="40" />
                     </label>
                     <label
                         >Nom du fichier
@@ -1482,6 +1471,14 @@ onBeforeUnmount(() => {
         </div>
     </AppModal>
     <FenetreMessage :message="message" @fermer="message = ''" />
+
+    <ConceptionGif
+        v-model="miseEnPage"
+        :opened="conceptionOuverte"
+        :creer-rendu="creerRendu"
+        :images="imagesLogos"
+        @close="conceptionOuverte = false"
+    />
 </template>
 
 <style>
@@ -1752,6 +1749,13 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 3px;
+}
+.ev-carte__conception {
+    white-space: nowrap;
+}
+.ev-carte__options-gif-champs label.ev-carte__case-gif input {
+    width: auto;
+    flex: none;
 }
 .ev-carte__options-gif-champs label.ev-carte__case-gif {
     flex-direction: row;

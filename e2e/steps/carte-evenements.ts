@@ -345,14 +345,28 @@ async function optionsGif(monde: Monde) {
     if (!(await volet.evaluate(el => (el as HTMLDetailsElement).open))) await volet.locator('summary').click();
 }
 
+/** Fenêtre « Mise en page » du GIF : titre, légende, compteur et logos (réglages ouverts puis refermés) */
+const conception = (monde: Monde) => monde.page.locator('#conceptionGifModal');
+async function ouvrirConception(monde: Monde) {
+    await monde.page.locator('#mapGifConception').click();
+    await expect(conception(monde)).toBeVisible();
+}
+async function fermerConception(monde: Monde) {
+    await conception(monde).getByRole('button', { name: 'Terminé', exact: true }).click();
+    await expect(conception(monde)).toBeHidden();
+}
+
 When('je saisis le titre {string} pour le GIF', async ({ monde }, titre) => {
-    await optionsGif(monde);
-    await monde.page.locator('#mapGifTitle').fill(titre);
+    await ouvrirConception(monde);
+    await conception(monde).locator('#conceptionTitre').fill(titre);
+    await fermerConception(monde);
 });
 
 When('je saisis le texte de compteur {string} pour le GIF', async ({ monde }, texte) => {
-    await optionsGif(monde);
-    await monde.page.locator('#mapGifCounter').fill(texte);
+    await ouvrirConception(monde);
+    await conception(monde).getByRole('button', { name: 'Compteur', exact: true }).click();
+    await conception(monde).locator('#conceptionCompteur').fill(texte);
+    await fermerConception(monde);
 });
 
 When('je saisis le nom de fichier {string} pour le GIF', async ({ monde }, nom) => {
