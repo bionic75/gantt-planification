@@ -18,7 +18,7 @@ import SaisieCra, { type SourceSaisie } from '@/ilots/cra/SaisieCra.vue';
 import MenuGrille from './MenuGrille.vue';
 import { menuAutorise, questionSuppression } from './menu';
 import FenetreMessage from '@/ilots/saisie/FenetreMessage.vue';
-import { SAMU_ASTREINTES } from '@/ilots/saisie/astreintes';
+import { LISTE_SAMU_ET_CAPTV } from '@/composants/samu';
 import { accesAccueil } from '@/ilots/navigation/navigation';
 import { ecouter, emettre, type NomFenetre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
@@ -775,7 +775,7 @@ surReouverture(() => {
             <label for="samuSelect">SAMU concerné</label>
             <select id="samuSelect" v-model="samu.choix" class="gp-planif-samu__liste">
                 <option value="">-- Choisir un SAMU --</option>
-                <option v-for="s in SAMU_ASTREINTES" :key="s" :value="s">{{ s }}</option>
+                <option v-for="s in LISTE_SAMU_ET_CAPTV" :key="s" :value="s">{{ s }}</option>
             </select>
         </div>
         <template #footer>
