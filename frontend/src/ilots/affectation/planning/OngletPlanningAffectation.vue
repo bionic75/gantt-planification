@@ -207,6 +207,12 @@ watch(
     { flush: 'post' }
 );
 
+/** Rubrique de la légende affichée ou masquée : la grille est redessinée (colonnes de largeurs différentes) et se replace sur aujourd'hui */
+function basculerRubrique(cle: string) {
+    centrageAuto = true;
+    magasin.basculerEtape(cle);
+}
+
 /** La grille se recentre seule sur aujourd'hui (jusqu'au premier défilement de l'utilisateur) */
 let centrageAuto = false;
 const arreterCentrage = () => {
@@ -361,7 +367,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee(k) }"
                 :title="`${masquee(k) ? 'Afficher' : 'Masquer'} : ${libelle(k)}`"
-                @click="magasin.basculerEtape(k)"
+                @click="basculerRubrique(k)"
             >
                 <i :style="fond(k)"></i>{{ libelle(k) }}
             </button>
@@ -373,7 +379,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee(k) }"
                 :title="`${masquee(k) ? 'Afficher' : 'Masquer'} : ${libelle(k)}`"
-                @click="magasin.basculerEtape(k)"
+                @click="basculerRubrique(k)"
             >
                 <i class="dot" :style="fond(k)"></i>{{ libelle(k) }}
             </button>
@@ -385,7 +391,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee(k) }"
                 :title="`${masquee(k) ? 'Afficher' : 'Masquer'} : ${libelle(k)}`"
-                @click="magasin.basculerEtape(k)"
+                @click="basculerRubrique(k)"
             >
                 <i :style="fond(k)"></i>{{ libelle(k) }}
             </button>
@@ -397,7 +403,7 @@ surReouverture(() => void ouvrir());
                 role="switch"
                 :aria-checked="masquee('_tri') ? 'false' : 'true'"
                 :title="`${masquee('_tri') ? 'Afficher' : 'Masquer'} les trigrammes des experts dans les étapes (VFT, formation, accompagnement, prérequis, visite métier)`"
-                @click="magasin.basculerEtape('_tri')"
+                @click="basculerRubrique('_tri')"
             >
                 <span class="sw"><i></i></span>Trigrammes des experts
             </button>
@@ -407,7 +413,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee('_past') }"
                 :title="`${masquee('_past') ? 'Afficher' : 'Masquer'} les SAMU dont la date de mise en service est passée`"
-                @click="magasin.basculerEtape('_past')"
+                @click="basculerRubrique('_past')"
             >
                 <i class="dot aff-plan__passe"></i>SAMU déjà en service
             </button>
@@ -417,7 +423,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee('_conges') }"
                 :title="`${masquee('_conges') ? 'Afficher' : 'Masquer'} la ligne des congés scolaires de la zone de chaque SAMU (A, B ou C)`"
-                @click="magasin.basculerEtape('_conges')"
+                @click="basculerRubrique('_conges')"
             >
                 <span class="aff-plan__zones"><i class="zone-A"></i><i class="zone-B"></i><i class="zone-C"></i></span
                 >Congés scolaires
@@ -427,7 +433,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee('_feries') }"
                 :title="`${masquee('_feries') ? 'Afficher' : 'Masquer'} la ligne des jours fériés`"
-                @click="magasin.basculerEtape('_feries')"
+                @click="basculerRubrique('_feries')"
             >
                 <i class="aff-plan__ferie"></i>Jours fériés
             </button>
