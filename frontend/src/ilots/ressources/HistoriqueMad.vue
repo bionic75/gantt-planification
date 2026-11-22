@@ -181,14 +181,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
         </div>
         <p v-if="message" :key="message" role="alert" class="historique__erreur">{{ message }}</p>
         <button v-if="!consultation" type="button" class="historique__ajouter" @click="ajouter">
-            ➕ Ajouter une période de MAD
+            ➕ Ajouter une modification
         </button>
     </div>
 
     <AppModal
         id="madHistoryModal"
         :opened="!!saisie"
-        :title="saisie?.id ? 'Modifier la période de MAD' : 'Ajouter une période de MAD'"
+        :title="saisie?.id ? 'Modifier la période de MAD' : 'Ajouter une modification'"
         class="periode"
         @close="saisie = null"
     >
