@@ -297,7 +297,7 @@ const fenetrePeriode = (monde: Monde) => monde.page.locator('#madHistoryModal');
 
 Then("l'historique de la fiche présente {int} période(s), la dernière au taux {string}", async ({ monde }, n, taux) => {
     await expect(lignesHistorique(monde)).toHaveCount(n);
-    await expect(lignesHistorique(monde).last().locator('td').nth(2)).toHaveText(taux);
+    await expect(lignesHistorique(monde).last().locator('td.historique__taux')).toHaveText(taux);
 });
 
 /** Enregistrement de la fenêtre d'une période de MAD */
