@@ -212,15 +212,19 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
                     </div>
                 </div>
                 <div class="fiche__ligne fiche__ligne--trois fiche__mad-type">
-                    <div class="fiche__volante">
-                        <input id="editMadVolante" v-model="f.madVolante" type="checkbox" class="fiche__case" />
-                        <label for="editMadVolante" class="fiche__volante-libelle">
-                            <svg class="fiche__avion" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="m22 2-7 20-4-9-9-4z" />
-                                <path d="M22 2 11 13" />
-                            </svg>
-                            MAD volante
-                        </label>
+                    <div class="form-group fiche__volante-cellule">
+                        <!-- Même hauteur de libellé que les champs voisins : la case s'aligne sur leurs champs -->
+                        <span class="fiche__libelle-vide" aria-hidden="true">&nbsp;</span>
+                        <div class="fiche__volante">
+                            <input id="editMadVolante" v-model="f.madVolante" type="checkbox" class="fiche__case" />
+                            <label for="editMadVolante" class="fiche__volante-libelle">
+                                <svg class="fiche__avion" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="m22 2-7 20-4-9-9-4z" />
+                                    <path d="M22 2 11 13" />
+                                </svg>
+                                MAD volante
+                            </label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="editJoursMaxMad"
@@ -418,7 +422,23 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
     margin: 12px 0;
 }
 .fiche__mad-type {
-    align-items: end;
+    align-items: stretch;
+}
+.fiche__volante-cellule {
+    display: flex;
+    flex-direction: column;
+}
+.fiche__libelle-vide {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: bold;
+}
+.fiche__volante-cellule .fiche__volante {
+    flex: 1;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 .fiche__volante-champs {
     margin-top: 10px;
