@@ -70,7 +70,9 @@ describe('lignes de congés et de jours fériés', () => {
         expect(cellule('2031-03-05', avec('B'))).toContain('aff-repos conge');
         expect(cellule('2031-03-05', avec('A'))).not.toContain('aff-repos');
         expect(cellule('2031-03-05', avec(null))).not.toContain('aff-repos');
-        expect(cellule('2031-03-11', avec('B'))).not.toContain('aff-repos');
+        // Fin exclue (reprise des cours)
+        expect(cellule('2031-03-10', avec('B'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-09', avec('B'))).toContain('aff-repos conge');
     });
     it('sans données : cellule inchangée', () => {
         expect(cellule('2031-03-05', contexte([p]))).toBe('');

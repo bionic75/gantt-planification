@@ -60,14 +60,16 @@ function ligneRepos(repos: Repos, p: Deploiement, c: Colonne): string {
     const conges = zone ? (repos.conges[zone] ?? []) : [];
     return (
         conges
-            .map(x =>
-                segment(
+            .map(x => {
+                // Fin exclue (reprise des cours), comme dans le reste de l'application
+                const dernier = isoMs(utcMs(x.end) - 86400000);
+                return segment(
                     x.start,
-                    x.end,
+                    dernier,
                     'conge',
-                    `Congés scolaires zone ${zone} : ${jourFr(x.start)} → ${jourFr(x.end)}`
-                )
-            )
+                    `Congés scolaires zone ${zone} : ${jourFr(x.start)} → ${jourFr(dernier)}`
+                );
+            })
             .join('') +
         repos.feries
             .map(f => segment(f.date, f.endDate || f.date, 'ferie', `${f.libelle} : ${jourFr(f.date)}`))
