@@ -316,7 +316,7 @@ When('je clôture dans la fiche la période en cours au {string}', async ({ mond
 When("j'ajoute dans la fiche une période au taux de {int} % à partir du {string}", async ({ monde }, taux, debut) => {
     const page = monde.page;
     await fiche(monde)
-        .getByRole('button', { name: /Ajouter un taux de MAD/ })
+        .getByRole('button', { name: /Ajouter une période de MAD/ })
         .click();
     await expect(fenetrePeriode(monde)).toBeVisible();
     await page.locator('#madDateDebut').fill(debut);
@@ -388,7 +388,7 @@ Then(
         await expect(fiche(monde)).toContainText('Détail de la ressource');
         for (const id of ['editNom', 'editTrigramme', 'editSamu', 'editFonction', 'editContactsRh'])
             await expect(page.locator(`#${id}`)).toBeDisabled();
-        await expect(fiche(monde).getByRole('button', { name: /Ajouter un taux de MAD/ })).toBeHidden();
+        await expect(fiche(monde).getByRole('button', { name: /Ajouter une période de MAD/ })).toBeHidden();
         await expect(fiche(monde).getByRole('button', { name: 'Enregistrer', exact: true })).toHaveCount(0);
         await expect(fiche(monde)).toContainText('Astreintes HO : non');
     }

@@ -38,6 +38,9 @@ export interface PeriodeMadGrille {
     date_debut: string;
     date_fin: string | null;
     taux: number;
+    /** 1 : période de MAD volante (taux 0, quota de jours) ; 0 ou absent : MAD classique */
+    volante?: number | null;
+    jours_max?: number | null;
 }
 
 /** Particularité d'une période de MAD (taux différent sur quelques jours) */

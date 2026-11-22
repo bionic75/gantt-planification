@@ -122,6 +122,17 @@ describe('périodes et particularités', () => {
         expect(periodeIncomplete('2026-01-01', '', '0')).toBeNull();
     });
 
+    it('période de MAD volante : date de fin et jours max obligatoires, taux sans objet', () => {
+        const message = 'Remplissez la date de fin et les jours max pour une MAD volante';
+        expect(periodeIncomplete('2026-01-01', '', '', true, '10')).toBe(message);
+        expect(periodeIncomplete('2026-01-01', '2026-06-30', '', true, '')).toBe(message);
+        expect(periodeIncomplete('2026-01-01', '2026-06-30', '', true, '0')).toBe(message);
+        expect(periodeIncomplete('2026-02-01', '2026-01-01', '', true, '10')).toBe(
+            'La date de fin doit être postérieure à la date de début'
+        );
+        expect(periodeIncomplete('2026-01-01', '2026-06-30', '', true, '10')).toBeNull();
+    });
+
     it('contrôles des particularités (ajout et modification)', () => {
         expect(particulariteIncomplete('2026-01-01', '', '0')).toBe('Veuillez remplir les dates et le taux');
         expect(particulariteIncomplete('2026-02-01', '2026-01-01', '0')).toBe(

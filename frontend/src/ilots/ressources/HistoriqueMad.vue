@@ -41,25 +41,45 @@ const triees = computed(() => [...historique.value].sort((a, b) => a.date_debut.
 // ---------- Période ----------
 
 /** Période saisie : identifiant (modification) ou null (ajout) */
-const saisie = ref<{ id: number | null; debut: string; fin: string; taux: string } | null>(null);
+const saisie = ref<{
+    id: number | null;
+    debut: string;
+    fin: string;
+    taux: string;
+    volante: boolean;
+    joursMax: string;
+} | null>(null);
 const messagePeriode = ref('');
 
 function ajouter() {
     messagePeriode.value = '';
-    saisie.value = { id: null, debut: '', fin: '', taux: '' };
+    saisie.value = { id: null, debut: '', fin: '', taux: '', volante: false, joursMax: '' };
 }
 
 function modifier(p: PeriodeMad) {
     messagePeriode.value = '';
-    saisie.value = { id: p.id, debut: p.date_debut || '', fin: p.date_fin || '', taux: String(p.taux) };
+    saisie.value = {
+        id: p.id,
+        debut: p.date_debut || '',
+        fin: p.date_fin || '',
+        taux: String(p.taux),
+        volante: !!p.volante,
+        joursMax: p.jours_max ? String(p.jours_max) : ''
+    };
 }
 
 async function enregistrer() {
     const s = saisie.value;
     if (!s) return;
-    messagePeriode.value = periodeIncomplete(s.debut, s.fin, s.taux) ?? '';
+    messagePeriode.value = periodeIncomplete(s.debut, s.fin, s.taux, s.volante, s.joursMax) ?? '';
     if (messagePeriode.value) return;
-    const corps = { taux: parseFloat(s.taux), date_debut: s.debut, date_fin: s.fin || null };
+    const corps = {
+        taux: s.volante ? 0 : parseFloat(s.taux),
+        date_debut: s.debut,
+        date_fin: s.fin || null,
+        volante: s.volante,
+        jours_max: s.volante ? parseInt(s.joursMax) : null
+    };
     try {
         if (s.id) await apiRessources.modifierPeriode(props.ressource.id, s.id, corps);
         else await apiRessources.ajouterPeriode(props.ressource.id, corps);
@@ -106,6 +126,7 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                     <tr>
                         <th>Date début</th>
                         <th>Date fin</th>
+                        <th class="historique__centre">Type</th>
                         <th class="historique__centre">Taux</th>
                         <th v-if="!consultation" class="historique__centre">Actions</th>
                     </tr>
@@ -117,8 +138,15 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                             <template v-if="p.date_fin">{{ dateFr(p.date_fin) }}</template>
                             <em v-else class="historique__en-cours">En cours</em>
                         </td>
+                        <td class="historique__centre">
+                            <span v-if="p.volante" class="historique__type historique__type--volante"
+                                >✈️ Volante · {{ p.jours_max }} j max</span
+                            >
+                            <span v-else class="historique__type">Classique</span>
+                        </td>
                         <td class="historique__taux" :class="{ 'historique__taux--nul': p.taux === 0 }">
-                            {{ p.taux }}%
+                            <template v-if="p.volante">–</template>
+                            <template v-else>{{ p.taux }}%</template>
                         </td>
                         <td v-if="!consultation" class="historique__centre">
                             <button
@@ -153,14 +181,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
         </div>
         <p v-if="message" :key="message" role="alert" class="historique__erreur">{{ message }}</p>
         <button v-if="!consultation" type="button" class="historique__ajouter" @click="ajouter">
-            ➕ Ajouter un taux de MAD
+            ➕ Ajouter une période de MAD
         </button>
     </div>
 
     <AppModal
         id="madHistoryModal"
         :opened="!!saisie"
-        :title="saisie?.id ? 'Modifier le taux de MAD' : 'Ajouter un taux de MAD'"
+        :title="saisie?.id ? 'Modifier la période de MAD' : 'Ajouter une période de MAD'"
         class="periode"
         @close="saisie = null"
     >
@@ -176,6 +204,28 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                 <input id="madDateFin" v-model="saisie.fin" type="date" class="periode__champ" />
             </div>
             <div class="form-group">
+                <label for="madType">Type de MAD</label>
+                <select id="madType" v-model="saisie.volante" class="periode__champ">
+                    <option :value="false">MAD classique (taux)</option>
+                    <option :value="true">MAD volante (nombre de jours maximum)</option>
+                </select>
+            </div>
+            <div v-if="saisie.volante" class="form-group">
+                <label for="madJoursMax"
+                    >Jours max sur la période *
+                    <span class="periode__aide">(le quota repart à zéro à chaque période)</span></label
+                >
+                <input
+                    id="madJoursMax"
+                    :value="saisie.joursMax"
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 20"
+                    class="periode__champ"
+                    @input="saisie.joursMax = texte($event)"
+                />
+            </div>
+            <div v-else class="form-group">
                 <label for="madTaux">Taux de MAD (%) *</label>
                 <input
                     id="madTaux"
@@ -256,6 +306,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
     text-align: center;
     font-weight: bold;
     color: #2e7d32;
+}
+.historique__type {
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+.historique__type--volante {
+    color: #0d47a1;
+    font-weight: 600;
 }
 .historique__tableau .historique__taux--nul {
     color: #e74c3c;

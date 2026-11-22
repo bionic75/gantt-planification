@@ -178,6 +178,12 @@ const ligneAstreinte = (actif: number, libelle: string) => ({ actif: !!actif, li
                 </div>
             </div>
 
+            <p class="fiche__volante-aide fiche__volante-note">
+                Ces champs décrivent la période de MAD en cours. Pour alterner MAD volante et MAD classique, ou
+                prolonger une période (avenant), utilisez l'historique des MAD : chaque période volante a son propre
+                quota.
+            </p>
+
             <div class="fiche__ligne fiche__ligne--deux fiche__samus">
                 <SaisieSamu
                     v-model="f.principal"

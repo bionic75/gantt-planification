@@ -144,8 +144,17 @@ export function depuisMois(date: string | null, maintenant = new Date()): string
 // ---------- Périodes de MAD et particularités ----------
 
 /** Période saisie incomplète ou incohérente : message, ou null */
-export function periodeIncomplete(debut: string, fin: string, taux: string): string | null {
-    if (!debut || taux === '') return 'Veuillez remplir la date de début et le taux';
+export function periodeIncomplete(
+    debut: string,
+    fin: string,
+    taux: string,
+    volante = false,
+    joursMax = ''
+): string | null {
+    if (volante) {
+        if (!debut || !fin || !(parseFloat(joursMax) > 0))
+            return 'Remplissez la date de fin et les jours max pour une MAD volante';
+    } else if (!debut || taux === '') return 'Veuillez remplir la date de début et le taux';
     if (fin && debut > fin) return 'La date de fin doit être postérieure à la date de début';
     return null;
 }

@@ -4,7 +4,7 @@ import type { CompteGrille, PeriodeMadGrille, Planning } from '@/api/planificati
 import type { Ressource } from '@/api/ressources';
 import type { Profil } from '@/api/types';
 import type { AffectationEnAttente, ExpertEnAttente } from '@/evenements';
-import { cleCellule, dateAccessible, joursMadVolanteConsommes, type Periode } from './grille';
+import { cleCellule, dateAccessible, joursMadVolanteConsommes, periodeVolante, type Periode } from './grille';
 
 /** Contexte de la saisie : profil et personne connectée */
 export interface ContexteSaisie {
@@ -48,16 +48,24 @@ export const MESSAGES = {
     samuObligatoire: 'Veuillez sélectionner un SAMU'
 };
 
-const quotaAtteint = (r: Ressource) =>
-    `Quota MAD volante atteint : ${r.jours_max_mad} jour(s) maximum déjà consommés sur la période du contrat.`;
+const quotaAtteint = (joursMax: number) =>
+    `Quota MAD volante atteint : ${joursMax} jour(s) maximum déjà consommés sur la période de MAD volante.`;
 
 /** Expert sur la ligne d'une autre ressource : le clic est sans effet */
 const autreLigne = (ctx: ContexteSaisie, c: Cellule) => ctx.profil === 'expert' && c.ressource.id !== ctx.ressourceId;
 
-const quotaMadVolante = (planning: Planning, r: Ressource) =>
-    !!r.is_mad_volante &&
-    !!r.jours_max_mad &&
-    joursMadVolanteConsommes(planning, r.id, r.date_debut, r.date_fin_mad) >= r.jours_max_mad;
+/** Quota atteint (jours maximum de la période : null sinon) : période de MAD volante qui couvre la date de la cellule */
+const quotaMadVolante = (
+    planning: Planning,
+    r: Ressource,
+    historique: PeriodeMadGrille[] | undefined,
+    date: string
+) => {
+    const p = periodeVolante(r, historique, date, false);
+    return p && p.joursMax && joursMadVolanteConsommes(planning, r.id, p.debut, p.fin) >= p.joursMax
+        ? p.joursMax
+        : null;
+};
 
 /** Localisation effacée : supprimée seulement si elle existe */
 function effacer(planning: Planning, changements: Changements, cle: string) {
@@ -82,7 +90,8 @@ export function basculerDisponibilite(
     const cleAct = cleCellule(id, 'activity', c.date, c.periode);
     const cleLoc = cleCellule(id, 'localisation', c.date, c.periode);
     const actuelle = planning[cle] || '1';
-    if (actuelle === '1' && quotaMadVolante(planning, c.ressource)) return { erreur: quotaAtteint(c.ressource) };
+    const quota = actuelle === '1' ? quotaMadVolante(planning, c.ressource, historique, c.date) : null;
+    if (quota) return { erreur: quotaAtteint(quota) };
 
     const changements: Changements = {};
     if (ctx.profil === 'expert') {
@@ -148,14 +157,19 @@ export function controlerAffectation(
  * Affectation suivante : 2 → 3 → … → 8 → 2 ; la localisation est effacée en quittant ou en retrouvant « En attente » ;
  * l'auteur (« prénom.nom ») est enregistré
  */
-export function changerAffectation(ctx: ContexteSaisie, planning: Planning, c: Cellule): Resultat {
+export function changerAffectation(
+    ctx: ContexteSaisie,
+    planning: Planning,
+    historique: PeriodeMadGrille[] | undefined,
+    c: Cellule
+): Resultat {
     const id = c.ressource.id;
     const cleAct = cleCellule(id, 'activity', c.date, c.periode);
     const cleLoc = cleCellule(id, 'localisation', c.date, c.periode);
     const actuelle = parseInt(planning[cleAct] || '2');
     const suivante = actuelle + 1 > 8 ? 2 : actuelle + 1;
-    if (suivante >= 3 && actuelle < 3 && quotaMadVolante(planning, c.ressource))
-        return { erreur: quotaAtteint(c.ressource) };
+    const quota = suivante >= 3 && actuelle < 3 ? quotaMadVolante(planning, c.ressource, historique, c.date) : null;
+    if (quota) return { erreur: quotaAtteint(quota) };
     const changements: Changements = {
         [cleAct]: String(suivante),
         [cleCellule(id, 'author', c.date, c.periode)]: `${ctx.prenom}.${ctx.nom}`

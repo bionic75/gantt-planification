@@ -74,6 +74,28 @@ describe('disponibilité', () => {
     });
 });
 
+describe('quota de MAD volante par période', () => {
+    const historique = [
+        { id: 1, date_debut: '2027-01-01', date_fin: '2027-01-31', taux: 0, volante: 1, jours_max: 0.5 },
+        { id: 2, date_debut: '2027-02-01', date_fin: '2027-02-28', taux: 60, volante: 0, jours_max: null },
+        { id: 3, date_debut: '2027-03-01', date_fin: '2027-03-31', taux: 0, volante: 1, jours_max: 0.5 }
+    ];
+    const consomme = { '1_available_2027-01-04_AM': '2', '1_activity_2027-01-04_AM': '3' };
+    const cellule = (date: string): Cellule => ({ ressource: r, date, periode: 'AM' });
+
+    it('atteint dans la période volante où les jours sont consommés', () => {
+        expect(basculerDisponibilite(admin, consomme, historique, cellule('2027-01-05'))).toMatchObject({
+            erreur: expect.stringContaining('Quota MAD volante atteint')
+        });
+    });
+    it('pas de quota en MAD classique', () => {
+        expect(basculerDisponibilite(admin, consomme, historique, cellule('2027-02-10'))).not.toHaveProperty('erreur');
+    });
+    it('repart à zéro à la période volante suivante', () => {
+        expect(basculerDisponibilite(admin, consomme, historique, cellule('2027-03-10'))).not.toHaveProperty('erreur');
+    });
+});
+
 describe('affectation', () => {
     it('contrôles : utilisateur en lecture seule, indisponible, congés', () => {
         expect(controlerAffectation(utilisateur, {}, undefined, c, false)).toEqual({ erreur: MESSAGES.lectureSeule });
@@ -99,16 +121,16 @@ describe('affectation', () => {
 
     it('cycle 2 → 3 … 8 → 2, localisation effacée en quittant ou en retrouvant « En attente », auteur', () => {
         const p: Planning = { [k('available')]: '2', [k('localisation')]: '🗼 PSC' };
-        expect(changerAffectation(admin, p, c)).toEqual({
+        expect(changerAffectation(admin, p, undefined, c)).toEqual({
             changements: { [k('activity')]: '3', [k('author')]: 'Paul.Admin', [k('localisation')]: null },
             suivi: { affectation: '3', localisation: '-' }
         });
         const p8 = { ...p, [k('activity')]: '8', [k('localisation')]: '🚨 SAMU 75' };
-        expect(changerAffectation(admin, p8, c)).toMatchObject({
+        expect(changerAffectation(admin, p8, undefined, c)).toMatchObject({
             changements: { [k('activity')]: '2', [k('localisation')]: null }
         });
         const p4 = { ...p, [k('activity')]: '4', [k('localisation')]: '🚨 SAMU 75' };
-        expect(changerAffectation(admin, p4, c)).toEqual({
+        expect(changerAffectation(admin, p4, undefined, c)).toEqual({
             changements: { [k('activity')]: '5', [k('author')]: 'Paul.Admin' },
             suivi: { affectation: '5', localisation: '🚨 SAMU 75' }
         });
