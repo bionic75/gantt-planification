@@ -28,7 +28,7 @@ import { ecrireEtat, FONDS, lireEtat, opaciteDepartements, stockageNavigateur, t
 import { centreDe, couleursDepartements, type Contours } from './departements';
 import { genererMp4, mp4Disponible, pair } from './mp4';
 import { placerEtiquettes, type EtiquetteAPlacer } from './etiquettes';
-import { ENCARTS, rapprocherOutreMer } from './outre-mer';
+import { ENCARTS, projectionFranceEtEncarts, rapprocherOutreMer } from './outre-mer';
 import {
     genererGif,
     LIBELLE_COMPTEUR_GIF,
@@ -276,7 +276,7 @@ const contoursDepartements = () =>
             throw e;
         }));
 /** Contours tels qu'affichés : outre-mer rapprochée de la métropole en mode « France seule » */
-const contoursAffiches = (c: Contours) => (franceSeule.value ? rapprocherOutreMer(c) : c);
+const contoursAffiches = (c: Contours, encarts = franceSeule.value) => (encarts ? rapprocherOutreMer(c) : c);
 /** Sans fond de carte : fond uni et contours administratifs */
 const sansFond = () => fond.value === 'administratif' || franceSeule.value;
 const contoursRegions = () => chargerContours('/vue/regions.geojson');
@@ -886,6 +886,8 @@ const DEFINITIONS_GIF = [
 ];
 const tailleGif = ref(800);
 const definitionGif = ref(30);
+/** Outre-mer en encarts dans l'image (la France entière est alors cadrée, quelle que soit la vue de la carte) */
+const outreMerGif = ref(true);
 
 /** Couleurs du style du GIF : mer bleu pâle, France en relief léger (ombre portée), régions en trait bleu nuit */
 const STYLE_GIF = {
@@ -902,7 +904,8 @@ function fondDuGif(
     hauteur: number,
     projeter: Projection,
     contours: Contours,
-    regions: Contours | null
+    regions: Contours | null,
+    encarts: boolean
 ) {
     const c = document.createElement('canvas');
     c.width = largeur;
@@ -911,7 +914,7 @@ function fondDuGif(
     if (!ctx) throw new Error('Canvas indisponible');
     ctx.fillStyle = STYLE_GIF.mer;
     ctx.fillRect(0, 0, largeur, hauteur);
-    const departements = contoursAffiches(contours);
+    const departements = contoursAffiches(contours, encarts);
     const decalage = Math.max(2, Math.round(largeur * 0.005));
     tracerContours(
         ctx,
@@ -928,7 +931,7 @@ function fondDuGif(
         remplissage: STYLE_GIF.vide
     });
     if (regions) tracerContours(ctx, regions, projeter, { trait: STYLE_GIF.region, epaisseur: 1.8 });
-    if (franceSeule.value) {
+    if (encarts) {
         ctx.save();
         ctx.strokeStyle = STYLE_GIF.region;
         ctx.setLineDash([6, 6]);
@@ -1079,12 +1082,20 @@ async function exporterAnimation(format: 'gif' | 'mp4') {
         // La carte est cadrée sous le bandeau du titre (sinon il recouvre le nord de la France)
         const haut = hauteurBandeauTitre(hauteur, titre);
         const reduction = (hauteur - haut) / hauteur;
-        const projeter: Projection = (lng, lat) => {
-            const pt = cible.latLngToContainerPoint([lat, lng]);
-            return [largeur / 2 + (pt.x * echelle - largeur / 2) * reduction, haut + pt.y * echelle * reduction];
-        };
-        const contoursDuGif = contoursAffiches(contours);
-        const base = fondDuGif(largeur, hauteur, projeter, contours, regions);
+        // Outre-mer demandée : France entière et encarts cadrés d'office ; sinon, vue actuelle de la carte
+        const encarts = franceSeule.value || outreMerGif.value;
+        const projeter: Projection =
+            outreMerGif.value && !franceSeule.value
+                ? projectionFranceEtEncarts(largeur, hauteur, haut)
+                : (lng, lat) => {
+                      const pt = cible.latLngToContainerPoint([lat, lng]);
+                      return [
+                          largeur / 2 + (pt.x * echelle - largeur / 2) * reduction,
+                          haut + pt.y * echelle * reduction
+                      ];
+                  };
+        const contoursDuGif = contoursAffiches(contours, encarts);
+        const base = fondDuGif(largeur, hauteur, projeter, contours, regions, encarts);
         const dates = compresser.value
             ? datesDesImagesCompressees(datesMes, definitionGif.value)
             : datesDesImages(periode, definitionGif.value);
@@ -1402,6 +1413,10 @@ onBeforeUnmount(() => {
                             maxlength="80"
                             placeholder="Facultatif"
                         />
+                    </label>
+                    <label class="ev-carte__case-gif"
+                        ><input id="mapGifOutreMer" v-model="outreMerGif" type="checkbox" />
+                        Outre-mer en encarts (cadre la France entière)
                     </label>
                     <label
                         >Taille
@@ -1737,6 +1752,11 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 3px;
+}
+.ev-carte__options-gif-champs label.ev-carte__case-gif {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
 }
 .ev-carte__etiquette-carte {
     /* Le repère Leaflet fait 0 × 0 : sans largeur propre, l'étiquette aurait une emprise vide (invisible pour les tests) */
