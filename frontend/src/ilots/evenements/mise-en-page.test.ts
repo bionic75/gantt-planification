@@ -5,6 +5,10 @@ import {
     dimensionsLogo,
     elementEn,
     ajusterTaille,
+    cadrerPoint,
+    centreCadre,
+    zoomAutour,
+    ZOOM_CARTE,
     lignesLegende,
     miseEnPageParDefaut,
     police,
@@ -96,5 +100,43 @@ describe('mise en page du GIF / MP4', () => {
             { couleur: null, texte: 'Mise à jour 2026' }
         ]);
         expect(lignesLegende(statuts, false, '')).toEqual([]);
+    });
+
+    it('cadrage de la carte : par défaut, les points ne bougent pas', () => {
+        const m = miseEnPageParDefaut();
+        expect(m.carte).toEqual({ x: 0, y: 0, zoom: 1 });
+        expect(cadrerPoint([123, 45], m.carte, { largeur: 800, hauteur: 600 }, { x: 400, y: 300 })).toEqual([123, 45]);
+    });
+
+    it('centre du cadre : sous l’espace libre du haut', () => {
+        expect(centreCadre({ largeur: 800, hauteur: 600 }, 0)).toEqual({ x: 400, y: 300 });
+        expect(centreCadre({ largeur: 800, hauteur: 600 }, 0.1)).toEqual({ x: 400, y: 330 });
+    });
+
+    it('cadrage : zoom autour du centre du cadre, puis décalage en fractions de l’image', () => {
+        const image = { largeur: 800, hauteur: 600 };
+        const centre = { x: 400, y: 300 };
+        // Le centre reste en place, un point à 100 px du centre passe à 200 px
+        expect(cadrerPoint([400, 300], { x: 0, y: 0, zoom: 2 }, image, centre)).toEqual([400, 300]);
+        expect(cadrerPoint([500, 300], { x: 0, y: 0, zoom: 2 }, image, centre)).toEqual([600, 300]);
+        // Décalage de 0,1 de la largeur (80 px) et de -0,05 de la hauteur (-30 px)
+        expect(cadrerPoint([400, 300], { x: 0.1, y: -0.05, zoom: 1 }, image, centre)).toEqual([480, 270]);
+    });
+
+    it('zoom à la molette : le point sous le pointeur reste en place', () => {
+        const image = { largeur: 800, hauteur: 600 };
+        const centre = { x: 400, y: 300 };
+        const avant = { x: 0.05, y: -0.02, zoom: 1 };
+        const pointeur = { x: 600, y: 200 };
+        const apres = zoomAutour(avant, 2, pointeur, image, centre);
+        expect(apres.zoom).toBe(2);
+        // Point de la carte (avant zoom) qui était sous le pointeur
+        const [qx, qy] = [pointeur.x - 0.05 * 800, pointeur.y + 0.02 * 600];
+        const [x, y] = cadrerPoint([qx, qy], apres, image, centre);
+        expect(x).toBeCloseTo(pointeur.x);
+        expect(y).toBeCloseTo(pointeur.y);
+        // Zoom borné
+        expect(zoomAutour(avant, 99, pointeur, image, centre).zoom).toBe(ZOOM_CARTE.max);
+        expect(zoomAutour(avant, 0, pointeur, image, centre).zoom).toBe(ZOOM_CARTE.min);
     });
 });

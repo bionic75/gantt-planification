@@ -76,7 +76,17 @@ export interface LogoGif extends Position {
     taille: number;
 }
 
+/** Cadrage de la carte dans l'image : décalage (fractions de l'image) et zoom autour du centre du cadre */
+export interface CadrageCarte {
+    x: number;
+    y: number;
+    zoom: number;
+}
+export const ZOOM_CARTE = { min: 0.5, max: 3, defaut: 1 } satisfies Bornes;
+
 export interface MiseEnPage {
+    /** Position et échelle de la carte (déplacée et zoomée à la souris) */
+    carte: CadrageCarte;
     titre: ElementTexte;
     legende: Legende;
     compteur: Compteur;
@@ -89,6 +99,7 @@ export interface MiseEnPage {
 export function miseEnPageParDefaut(): MiseEnPage {
     const police0 = POLICES_GIF[0]!.valeur;
     return {
+        carte: { x: 0, y: 0, zoom: ZOOM_CARTE.defaut },
         titre: { visible: true, texte: '', police: police0, taille: BORNES.titre.defaut, x: 0.03, y: 0.02 },
         legende: {
             visible: false,
@@ -178,4 +189,33 @@ export function lignesLegende(
             .filter(Boolean)
             .map(texte => ({ couleur: null, texte }))
     ];
+}
+
+type Image = { largeur: number; hauteur: number };
+type Point = { x: number; y: number };
+
+/** Centre du cadre de la carte : image moins l'espace libre du haut (`margeHaut` : part de la hauteur) */
+export function centreCadre(image: { largeur: number; hauteur: number }, margeHaut: number): { x: number; y: number } {
+    const haut = Math.round(image.hauteur * margeHaut);
+    return { x: image.largeur / 2, y: haut + (image.hauteur - haut) / 2 };
+}
+
+/** Point de la carte (pixels, cadrage automatique) dans l'image après zoom autour de `centre` puis décalage */
+export function cadrerPoint([x, y]: [number, number], c: CadrageCarte, image: Image, centre: Point): [number, number] {
+    return [
+        centre.x + (x - centre.x) * c.zoom + c.x * image.largeur,
+        centre.y + (y - centre.y) * c.zoom + c.y * image.hauteur
+    ];
+}
+
+/** Cadrage après un zoom qui garde en place le point de la carte situé sous le pointeur (pixels de l'image) */
+export function zoomAutour(c: CadrageCarte, zoom: number, pointeur: Point, image: Image, centre: Point): CadrageCarte {
+    const z = Math.min(ZOOM_CARTE.max, Math.max(ZOOM_CARTE.min, Number.isFinite(zoom) ? zoom : ZOOM_CARTE.defaut));
+    // P = centre + (q − centre) × zoom + décalage : on cherche le décalage qui garde q sous P avec le nouveau zoom
+    const decalage = (p: number, ctr: number, off: number) => p - ctr - ((p - ctr - off) * z) / c.zoom;
+    return {
+        x: decalage(pointeur.x, centre.x, c.x * image.largeur) / image.largeur,
+        y: decalage(pointeur.y, centre.y, c.y * image.hauteur) / image.hauteur,
+        zoom: z
+    };
 }

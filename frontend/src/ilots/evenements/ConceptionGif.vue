@@ -7,11 +7,14 @@ import AppModal from '@/composants/AppModal.vue';
 import {
     ajusterTaille,
     BORNES,
+    centreCadre,
     elementEn,
     miseEnPageParDefaut,
     positionApresDeplacement,
     POLICES_GIF,
     REFERENCE_GIF,
+    ZOOM_CARTE,
+    zoomAutour,
     type Bornes,
     type BoiteElement,
     type MiseEnPage,
@@ -146,7 +149,8 @@ onBeforeUnmount(() => {
 // ---------- Souris ----------
 
 interface Geste {
-    mode: 'deplacer' | 'taille';
+    /** Déplacer ou redimensionner un élément, ou déplacer la carte (fond de l'aperçu) */
+    mode: 'deplacer' | 'taille' | 'carte';
     id: string;
     x0: number;
     y0: number;
@@ -178,7 +182,22 @@ function appuyer(e: PointerEvent) {
     if (surPoignee(p)) mode = 'taille';
     else {
         const trouve = elementEn(boites, p.x, p.y);
-        if (!trouve) return;
+        if (!trouve) {
+            // Fond de l'aperçu : la carte se déplace
+            geste = {
+                mode: 'carte',
+                id: '',
+                x0: p.x,
+                y0: p.y,
+                position0: { x: mep.value.carte.x, y: mep.value.carte.y },
+                taille0: 0,
+                boite0: { id: '', x: 0, y: 0, largeur: 0, hauteur: 0 }
+            };
+            curseur.value = 'grabbing';
+            canvas.value!.setPointerCapture(e.pointerId);
+            canvas.value!.focus();
+            return;
+        }
         id = trouve;
         selection.value = id;
     }
@@ -193,13 +212,19 @@ function appuyer(e: PointerEvent) {
 function deplacerSouris(e: PointerEvent) {
     const p = pointDe(e);
     if (!geste) {
-        curseur.value = surPoignee(p) ? 'nwse-resize' : elementEn(boites, p.x, p.y) ? 'move' : 'default';
+        curseur.value = surPoignee(p) ? 'nwse-resize' : elementEn(boites, p.x, p.y) ? 'move' : 'grab';
+        return;
+    }
+    const dx = p.x - geste.x0;
+    const dy = p.y - geste.y0;
+    if (geste.mode === 'carte') {
+        const c = mep.value.carte;
+        c.x = Math.min(1, Math.max(-1, geste.position0.x + dx / canvas.value!.width));
+        c.y = Math.min(1, Math.max(-1, geste.position0.y + dy / canvas.value!.height));
         return;
     }
     const el = element(geste.id);
     if (!el) return;
-    const dx = p.x - geste.x0;
-    const dy = p.y - geste.y0;
     if (geste.mode === 'deplacer') {
         Object.assign(
             el,
@@ -213,7 +238,33 @@ function deplacerSouris(e: PointerEvent) {
     }
 }
 function relacher() {
+    if (geste?.mode === 'carte') curseur.value = 'grab';
     geste = null;
+}
+
+/** Molette : zoom de la carte autour du pointeur */
+function molette(e: WheelEvent) {
+    const r = rendu.value;
+    const c = canvas.value;
+    if (!r || !c) return;
+    const rect = c.getBoundingClientRect();
+    const pointeur = {
+        x: ((e.clientX - rect.left) * c.width) / rect.width,
+        y: ((e.clientY - rect.top) * c.height) / rect.height
+    };
+    const image = { largeur: r.largeur, hauteur: r.hauteur };
+    const cadre = mep.value.carte;
+    mep.value.carte = zoomAutour(
+        cadre,
+        cadre.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1),
+        pointeur,
+        image,
+        centreCadre(image, mep.value.margeHaut)
+    );
+}
+
+function recentrerCarte() {
+    mep.value.carte = { x: 0, y: 0, zoom: ZOOM_CARTE.defaut };
 }
 
 /** Flèches : déplacement de 2 px (10 px avec Maj) ; Suppr : retire le logo sélectionné */
@@ -317,6 +368,7 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                     tabindex="0"
                     role="img"
                     aria-label="Aperçu de l'image : éléments déplaçables à la souris ou aux flèches"
+                    @wheel.prevent="molette"
                     @pointerdown="appuyer"
                     @pointermove="deplacerSouris"
                     @pointerup="relacher"
@@ -327,7 +379,8 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                 <p v-else-if="messageApercu" role="alert" class="conception__info">{{ messageApercu }}</p>
                 <p class="conception__aide">
                     Cliquez sur un élément pour le sélectionner, faites-le glisser pour le placer, tirez le carré bleu
-                    du coin pour changer sa taille. Flèches : déplacement fin (Maj : plus large).
+                    du coin pour changer sa taille. Glissez le fond pour déplacer la carte, molette pour zoomer. Flèches
+                    : déplacement fin (Maj : plus large).
                 </p>
             </div>
 
@@ -486,6 +539,19 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                         />
                     </label>
                     <p v-if="messageLogo" role="alert" class="conception__erreur">{{ messageLogo }}</p>
+                    <label
+                        >Zoom de la carte : {{ Math.round(mep.carte.zoom * 100) }} %
+                        <input
+                            v-model.number="mep.carte.zoom"
+                            type="range"
+                            :min="ZOOM_CARTE.min"
+                            :max="ZOOM_CARTE.max"
+                            step="0.05"
+                        />
+                    </label>
+                    <button type="button" class="conception__secondaire" @click="recentrerCarte">
+                        Recentrer la carte
+                    </button>
                     <label
                         >Espace libre au-dessus de la carte : {{ Math.round(mep.margeHaut * 100) }} %
                         <input v-model.number="mep.margeHaut" type="range" min="0" max="0.3" step="0.01" />

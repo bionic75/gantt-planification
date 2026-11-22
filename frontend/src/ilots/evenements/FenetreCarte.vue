@@ -48,7 +48,7 @@ import {
     plageMisesEnService
 } from './mises-en-service';
 import ConceptionGif from './ConceptionGif.vue';
-import { miseEnPageParDefaut, type MiseEnPage } from './mise-en-page';
+import { cadrerPoint, centreCadre, miseEnPageParDefaut, type CadrageCarte, type MiseEnPage } from './mise-en-page';
 import { dessinerMiseEnPage, type Rendu } from './mise-en-page-rendu';
 import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
@@ -1052,7 +1052,7 @@ async function creerRendu(largeur: number, margeHaut: number): Promise<Rendu | n
     const reduction = (hauteur - haut) / hauteur;
     // Outre-mer demandée : France entière et encarts cadrés d'office ; sinon, vue actuelle de la carte
     const encarts = franceSeule.value || outreMerGif.value;
-    const projeter: Projection =
+    const projeterAuto: Projection =
         outreMerGif.value && !franceSeule.value
             ? projectionFranceEtEncarts(largeur, hauteur, haut)
             : (lng, lat) => {
@@ -1060,13 +1060,25 @@ async function creerRendu(largeur: number, margeHaut: number): Promise<Rendu | n
                   return [largeur / 2 + (pt.x * echelle - largeur / 2) * reduction, haut + pt.y * echelle * reduction];
               };
     const contoursDuGif = contoursAffiches(contours, encarts);
-    const base = fondDuGif(largeur, hauteur, projeter, contours, regions, encarts);
+    // Carte déplacée et zoomée dans la fenêtre de conception : fond recalculé quand le cadrage change
+    const image = { largeur, hauteur };
+    const centre = centreCadre(image, margeHaut);
+    let vue: { cle: string; projeter: Projection; base: HTMLCanvasElement } | null = null;
+    const vueDe = (c: CadrageCarte) => {
+        const cle = `${c.x}|${c.y}|${c.zoom}`;
+        if (vue?.cle !== cle) {
+            const projeter: Projection = (lng, lat) => cadrerPoint(projeterAuto(lng, lat), c, image, centre);
+            vue = { cle, projeter, base: fondDuGif(largeur, hauteur, projeter, contours, regions, encarts) };
+        }
+        return vue;
+    };
     const statuts = statutsDeLegende(donnees, contours, periode);
     return {
         largeur,
         hauteur,
         dateApercu: periode.fin,
         dessiner: (ctx, date, m) => {
+            const { projeter, base } = vueDe(m.carte);
             const affiches = misesEnServiceA(donnees.deployments, donnees.statuses, periode, date);
             ctx.drawImage(base, 0, 0);
             const couleursDuJour = couleursDepartements(affiches, donnees.statuses, contours, statutsMasques.value);
