@@ -296,3 +296,19 @@
 .aff-plan-table tbody tr:nth-child(even) td.today {
     background: rgba(46, 157, 98, 0.18);
 }
+
+/* Ligne fine de congés scolaires (zone du SAMU) et de jours fériés, en bas de la ligne du SAMU */
+.aff-repos {
+    position: absolute;
+    bottom: 1px;
+    height: 3px;
+    pointer-events: none;
+    z-index: 2;
+}
+.aff-repos.conge {
+    background: #ef6c00;
+}
+.aff-repos.ferie {
+    background: #2e7d32;
+    bottom: 5px;
+}
