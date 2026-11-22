@@ -689,6 +689,9 @@ model ResourceMadHistory {
   taux        Float
   date_debut  String
   date_fin    String?
+  /// 1 : période de MAD volante (taux 0, nombre de jours maximum) ; 0 : MAD classique (taux)
+  volante     Int?      @default(0)
+  jours_max   Int?
   created_at  String? @default(dbgenerated("CURRENT_TIMESTAMP")) /// @timestamp
   created_by  Int?
 

@@ -63,6 +63,99 @@ describe('ressources', () => {
         expect(await findResource(admin, res.id)).toMatchObject({ nom: 'MODIFIE', taux: 30 });
     });
 
+    describe('MAD volante par période', () => {
+        const periodes = async (id: number) => (await admin.get(`/api/resources/${id}/mad-history`)).data as any[];
+
+        it('création en MAD volante : la première période est volante, avec ses dates et son quota', async () => {
+            const res = await createResource(admin, {
+                taux: '',
+                is_mad_volante: 1,
+                date_debut: '2025-01-01',
+                date_fin_mad: '2099-12-31',
+                jours_max_mad: 15
+            });
+            expect(await periodes(res.id)).toEqual([
+                expect.objectContaining({
+                    taux: 0,
+                    volante: 1,
+                    jours_max: 15,
+                    date_debut: '2025-01-01',
+                    date_fin: '2099-12-31'
+                })
+            ]);
+        });
+
+        it('alternance : la ressource suit la période en cours, volante puis classique', async () => {
+            const res = await createResource(admin, { taux: 50, date_debut: '2020-01-01' });
+            const [initiale] = await periodes(res.id);
+            expect(
+                (
+                    await admin.put(`/api/resources/${res.id}/mad-history/${initiale.id}`, {
+                        taux: 50,
+                        date_debut: '2020-01-01',
+                        date_fin: '2025-12-31'
+                    })
+                ).status
+            ).toBe(200);
+            const ajout = await admin.post(`/api/resources/${res.id}/mad-history`, {
+                volante: 1,
+                jours_max: 10,
+                date_debut: '2026-01-01',
+                date_fin: '2099-12-31'
+            });
+            expect(ajout.status, JSON.stringify(ajout.data)).toBe(200);
+            expect(await findResource(admin, res.id)).toMatchObject({
+                is_mad_volante: 1,
+                taux: 0,
+                jours_max_mad: 10,
+                date_fin_mad: '2099-12-31'
+            });
+            // La période volante devient classique
+            const [, volante] = await periodes(res.id);
+            expect(
+                (
+                    await admin.put(`/api/resources/${res.id}/mad-history/${volante.id}`, {
+                        volante: 0,
+                        taux: 60,
+                        date_debut: '2026-01-01',
+                        date_fin: ''
+                    })
+                ).status
+            ).toBe(200);
+            expect(await findResource(admin, res.id)).toMatchObject({ is_mad_volante: 0, taux: 60 });
+        });
+
+        it.each([
+            ['sans date de fin', { volante: 1, jours_max: 10, date_debut: '2026-01-01' }],
+            ['sans jours maximum', { volante: 1, date_debut: '2026-01-01', date_fin: '2099-12-31' }]
+        ])('période volante %s refusée', async (_nom, corps) => {
+            const res = await createResource(admin, { taux: 50, date_debut: '2020-01-01' });
+            const [initiale] = await periodes(res.id);
+            await admin.put(`/api/resources/${res.id}/mad-history/${initiale.id}`, {
+                taux: 50,
+                date_debut: '2020-01-01',
+                date_fin: '2025-12-31'
+            });
+            expect((await admin.post(`/api/resources/${res.id}/mad-history`, corps)).status).toBe(400);
+        });
+
+        it('la fiche écrit dans la période en cours', async () => {
+            const res = await createResource(admin, { taux: 50, date_debut: '2025-01-01' });
+            const r = await admin.put(`/api/resources/${res.id}`, {
+                ...res,
+                taux: '',
+                is_mad_volante: 1,
+                date_fin_mad: '2099-06-30',
+                jours_max_mad: 20
+            });
+            expect(r.status, JSON.stringify(r.data)).toBe(200);
+            expect(await periodes(res.id)).toEqual([
+                expect.objectContaining({ volante: 1, jours_max: 20, date_fin: '2099-06-30', taux: 0 })
+            ]);
+            expect(await findResource(admin, res.id)).toMatchObject({ is_mad_volante: 1, jours_max_mad: 20 });
+        });
+    });
+
     it('adresses e-mail : syntaxe vérifiée (e-mail de la ressource et contacts RH)', async () => {
         const res = await createResource(admin);
         const put = (body: any) => admin.put(`/api/resources/${res.id}`, { ...res, ...body });
