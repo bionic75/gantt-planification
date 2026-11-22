@@ -154,7 +154,7 @@ const statuts = computed(() =>
 
 <template>
     <AppAlert v-if="erreur" type="error" :description="erreur" />
-    <div class="table-container">
+    <div class="table-container liste__defilement">
         <table id="resourcesTable" ref="tableau">
             <thead>
                 <tr>
@@ -274,6 +274,23 @@ const statuts = computed(() =>
 </template>
 
 <style scoped>
+/* La liste défile dans son cadre (hauteur de la fenêtre) : la ligne bleue des colonnes reste affichée en haut */
+.liste__defilement {
+    max-height: calc(100vh - 150px);
+    min-height: 260px;
+    overflow: auto;
+}
+/* L'arrondi du tableau (overflow masqué) ferait de lui le cadre de défilement des en-têtes : il revient au cadre */
+#resourcesTable {
+    overflow: visible;
+    border-radius: 0;
+}
+#resourcesTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.25);
+}
 .liste__actions {
     width: 84px;
     min-width: 84px;
