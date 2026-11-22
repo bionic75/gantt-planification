@@ -280,7 +280,10 @@ export function periodeVolante(
     return volantes.find(p => p.debut > date) ?? volantes[volantes.length - 1] ?? null;
 }
 
-/** Jours de MAD volante consommés : demi-journées disponibles et affectées (hors 1 et 2) dans la période du contrat */
+/**
+ * Jours de MAD volante placés dans [debut, fin] : demi-journées disponibles (« 2 »), affectées ou non, car une
+ * affectation suppose une disponibilité. C'est ce nombre que le quota de la période limite.
+ */
 export function joursMadVolanteConsommes(
     planning: Planning,
     ressourceId: number,
@@ -289,13 +292,12 @@ export function joursMadVolanteConsommes(
 ): number {
     let consommes = 0;
     for (const [cle, valeur] of Object.entries(planning)) {
-        const m = /^(\d+)_activity_(\d{4}-\d{2}-\d{2})_(AM|PM)$/.exec(cle);
-        if (!m || parseInt(m[1]!) !== ressourceId) continue;
+        const m = /^(\d+)_available_(\d{4}-\d{2}-\d{2})_(AM|PM)$/.exec(cle);
+        if (!m || parseInt(m[1]!) !== ressourceId || valeur !== '2') continue;
         const date = m[2]!;
         if (debut && date < debut.slice(0, 10)) continue;
         if (fin && date > fin.slice(0, 10)) continue;
-        if (!valeur || valeur === '1' || valeur === '2') continue;
-        if (planning[`${ressourceId}_available_${date}_${m[3]}`] === '2') consommes += 0.5;
+        consommes += 0.5;
     }
     return consommes;
 }

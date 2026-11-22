@@ -155,8 +155,9 @@ describe('compteurs', () => {
             '1_activity_2027-03-01_AM': '5'
         };
         expect(joursDisponibles(planning, 1, 2027, 1)).toBe(1);
-        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', null)).toBe(1);
-        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', '2027-02-28')).toBe(0.5);
+        // Demi-journées disponibles (« 2 »), affectées ou non
+        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', null)).toBe(1.5);
+        expect(joursMadVolanteConsommes(planning, 1, '2027-01-01', '2027-02-28')).toBe(1);
     });
 });
 

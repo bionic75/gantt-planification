@@ -88,6 +88,22 @@ describe('quota de MAD volante par période', () => {
             erreur: expect.stringContaining('Quota MAD volante atteint')
         });
     });
+    it('les jours placés en disponibilité comptent, même sans affectation : au plus le quota de la période', () => {
+        const dispo = (n: number): Planning =>
+            Object.fromEntries(
+                Array.from({ length: n }, (_, i) => [
+                    `1_available_2027-01-${String(4 + Math.floor(i / 2)).padStart(2, '0')}_${i % 2 ? 'PM' : 'AM'}`,
+                    '2'
+                ])
+            );
+        const h = [{ id: 1, date_debut: '2027-01-01', date_fin: '2027-01-31', taux: 0, volante: 1, jours_max: 5 }];
+        // 5 jours placés (10 demi-journées) : un sixième est refusé
+        expect(basculerDisponibilite(admin, dispo(10), h, cellule('2027-01-20'))).toMatchObject({
+            erreur: expect.stringContaining('Quota MAD volante atteint')
+        });
+        // 4,5 jours placés : la dernière demi-journée est acceptée
+        expect(basculerDisponibilite(admin, dispo(9), h, cellule('2027-01-20'))).not.toHaveProperty('erreur');
+    });
     it('pas de quota en MAD classique', () => {
         expect(basculerDisponibilite(admin, consomme, historique, cellule('2027-02-10'))).not.toHaveProperty('erreur');
     });
