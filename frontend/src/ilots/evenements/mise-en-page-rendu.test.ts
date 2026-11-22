@@ -7,7 +7,10 @@ function faux() {
     const appels: string[] = [];
     const ctx = new Proxy({ measureText: (t: string) => ({ width: t.length * 6 }) } as Record<string, unknown>, {
         get: (cible, nom: string) => cible[nom] ?? ((...a: unknown[]) => void appels.push(`${nom}:${a.join(',')}`)),
-        set: () => true
+        set: (cible, nom: string, valeur) => {
+            cible[nom] = valeur;
+            return true;
+        }
     });
     return { ctx: ctx as unknown as CanvasRenderingContext2D, appels };
 }
@@ -41,6 +44,33 @@ describe('dessin de la mise en page', () => {
         const logo = boites.at(-1)!;
         // 120 × 60 de logo + 4 px de marge de chaque côté
         expect([logo.largeur, logo.hauteur]).toEqual([128, 68]);
+    });
+
+    it('titre sur plusieurs lignes : boîte aussi large que la plus longue, plus haute qu’une ligne seule', () => {
+        const { ctx } = faux();
+        const m = miseEnPageParDefaut();
+        m.titre.texte = 'Déploiement';
+        const une = dessinerMiseEnPage(ctx, 800, 600, m, donnees()).find(b => b.id === 'titre')!;
+        m.titre.texte = 'Déploiement\n\nSI-SAMU\n  national ';
+        const trois = dessinerMiseEnPage(ctx, 800, 600, m, donnees()).find(b => b.id === 'titre')!;
+        // Lignes vides ignorées : trois lignes
+        expect(trois.hauteur).toBeGreaterThan(une.hauteur * 2);
+        expect(trois.largeur).toBeCloseTo(une.largeur);
+    });
+
+    it('alignement du titre : à gauche, centré ou à droite dans sa boîte', () => {
+        const x = (alignement: 'left' | 'center' | 'right') => {
+            const { ctx, appels } = faux();
+            const m = miseEnPageParDefaut();
+            m.titre.texte = 'AAAAAAAA\nBB';
+            m.titre.alignement = alignement;
+            dessinerMiseEnPage(ctx, 800, 600, m, donnees());
+            // Abscisse du texte « BB » (la ligne courte)
+            const appel = appels.find(a => a.startsWith('fillText:BB'))!;
+            return Number(appel.split(',')[1]);
+        };
+        expect(x('left')).toBeLessThan(x('center'));
+        expect(x('center')).toBeLessThan(x('right'));
     });
 
     it('légende sans aucune ligne (statuts masqués, pas de texte) : pas de boîte ; logo sans image : ignoré', () => {

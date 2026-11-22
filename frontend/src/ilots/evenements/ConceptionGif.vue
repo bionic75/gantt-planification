@@ -6,6 +6,7 @@ import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import AppModal from '@/composants/AppModal.vue';
 import {
     ajusterTaille,
+    ALIGNEMENTS,
     BORNES,
     centreCadre,
     elementEn,
@@ -433,21 +434,39 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                         ><input v-model="mep.titre.visible" type="checkbox" /> Afficher le titre</label
                     >
                     <label
-                        >Texte
-                        <input
+                        >Texte (Entrée : nouvelle ligne)
+                        <textarea
                             id="conceptionTitre"
                             v-model="mep.titre.texte"
-                            type="text"
-                            maxlength="80"
+                            rows="3"
+                            maxlength="200"
                             placeholder="Titre de l'image"
-                        />
+                        ></textarea>
                     </label>
-                    <label
-                        >Police
-                        <select v-model="mep.titre.police">
-                            <option v-for="p in POLICES_GIF" :key="p.valeur" :value="p.valeur">{{ p.libelle }}</option>
-                        </select>
-                    </label>
+                    <div class="conception__style">
+                        <label
+                            >Police
+                            <select v-model="mep.titre.police">
+                                <option v-for="p in POLICES_GIF" :key="p.valeur" :value="p.valeur">
+                                    {{ p.libelle }}
+                                </option>
+                            </select>
+                        </label>
+                        <div class="conception__bascules">
+                            <label class="conception__case"
+                                ><input v-model="mep.titre.gras" type="checkbox" /> Gras</label
+                            >
+                            <label class="conception__case"
+                                ><input v-model="mep.titre.italique" type="checkbox" /> Italique</label
+                            >
+                        </div>
+                    </div>
+                    <div class="conception__alignements" role="radiogroup" aria-label="Alignement du titre">
+                        <label v-for="a in ALIGNEMENTS" :key="a.valeur" class="conception__case"
+                            ><input v-model="mep.titre.alignement" type="radio" :value="a.valeur" />
+                            {{ a.libelle }}</label
+                        >
+                    </div>
                     <label
                         >Taille : {{ mep.titre.taille }}
                         <input
@@ -468,7 +487,7 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                         ><input v-model="mep.legende.statuts" type="checkbox" /> Statuts (couleurs de la carte)</label
                     >
                     <label
-                        >Texte libre (une ligne par ligne de légende)
+                        >Texte libre (Entrée : nouvelle ligne)
                         <textarea
                             v-model="mep.legende.texte"
                             rows="3"
@@ -476,12 +495,30 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                             placeholder="Facultatif"
                         ></textarea>
                     </label>
-                    <label
-                        >Police
-                        <select v-model="mep.legende.police">
-                            <option v-for="p in POLICES_GIF" :key="p.valeur" :value="p.valeur">{{ p.libelle }}</option>
-                        </select>
-                    </label>
+                    <div class="conception__style">
+                        <label
+                            >Police
+                            <select v-model="mep.legende.police">
+                                <option v-for="p in POLICES_GIF" :key="p.valeur" :value="p.valeur">
+                                    {{ p.libelle }}
+                                </option>
+                            </select>
+                        </label>
+                        <div class="conception__bascules">
+                            <label class="conception__case"
+                                ><input v-model="mep.legende.gras" type="checkbox" /> Gras</label
+                            >
+                            <label class="conception__case"
+                                ><input v-model="mep.legende.italique" type="checkbox" /> Italique</label
+                            >
+                        </div>
+                    </div>
+                    <div class="conception__alignements" role="radiogroup" aria-label="Alignement de la légende">
+                        <label v-for="a in ALIGNEMENTS" :key="a.valeur" class="conception__case"
+                            ><input v-model="mep.legende.alignement" type="radio" :value="a.valeur" />
+                            {{ a.libelle }}</label
+                        >
+                    </div>
                     <label
                         >Taille : {{ mep.legende.taille }}
                         <input
@@ -498,6 +535,16 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
                     <label class="conception__case"
                         ><input v-model="mep.compteur.visible" type="checkbox" /> Afficher le compteur</label
                     >
+                    <label
+                        >Texte après « n / total »
+                        <input
+                            id="conceptionCompteur"
+                            v-model="mep.compteur.libelle"
+                            type="text"
+                            maxlength="40"
+                            placeholder="mise(s) en service"
+                        />
+                    </label>
                     <label
                         >Taille : {{ mep.compteur.taille }}
                         <input
@@ -656,6 +703,22 @@ const nomLogo = (id: string) => mep.value.logos.find(l => `logo-${l.id}` === id)
     gap: 6px;
 }
 .conception__groupe label.conception__case input {
+    width: auto;
+}
+.conception__style {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: end;
+}
+.conception__bascules,
+.conception__alignements {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.conception__groupe label.conception__case input[type='radio'],
+.conception__groupe label.conception__case input[type='checkbox'] {
     width: auto;
 }
 .conception__erreur {

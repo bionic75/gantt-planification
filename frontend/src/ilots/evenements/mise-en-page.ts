@@ -7,13 +7,28 @@
 export const REFERENCE_GIF = 800;
 const echelle = (largeurImage: number) => largeurImage / REFERENCE_GIF;
 
-/** Polices proposées (familles courantes, disponibles sur les postes) */
+/** Polices proposées (familles courantes des postes Windows et Mac, avec repli générique) */
 export const POLICES_GIF = [
     { valeur: 'Arial, Helvetica, sans-serif', libelle: 'Arial' },
+    { valeur: '"Helvetica Neue", Helvetica, Arial, sans-serif', libelle: 'Helvetica' },
     { valeur: 'Verdana, Geneva, sans-serif', libelle: 'Verdana' },
+    { valeur: 'Tahoma, Geneva, sans-serif', libelle: 'Tahoma' },
+    { valeur: '"Trebuchet MS", Helvetica, sans-serif', libelle: 'Trebuchet' },
+    { valeur: '"Century Gothic", "Avenir Next", Futura, sans-serif', libelle: 'Century Gothic' },
+    { valeur: '"Gill Sans", "Gill Sans MT", Calibri, sans-serif', libelle: 'Gill Sans' },
+    { valeur: '"Segoe UI", Roboto, "Helvetica Neue", sans-serif', libelle: 'Segoe UI' },
+    { valeur: '"Arial Black", Impact, sans-serif', libelle: 'Arial Black (épais)' },
+    { valeur: 'Impact, "Arial Narrow Bold", sans-serif', libelle: 'Impact (condensé)' },
     { valeur: 'Georgia, serif', libelle: 'Georgia' },
     { valeur: '"Times New Roman", Times, serif', libelle: 'Times' },
-    { valeur: '"Courier New", Courier, monospace', libelle: 'Courier' }
+    { valeur: 'Palatino, "Palatino Linotype", "Book Antiqua", serif', libelle: 'Palatino' },
+    { valeur: 'Garamond, "Hoefler Text", serif', libelle: 'Garamond' },
+    { valeur: 'Baskerville, "Baskerville Old Face", serif', libelle: 'Baskerville' },
+    { valeur: 'Rockwell, "Courier Bold", serif', libelle: 'Rockwell' },
+    { valeur: '"Courier New", Courier, monospace', libelle: 'Courier' },
+    { valeur: '"Lucida Console", Monaco, monospace', libelle: 'Lucida Console' },
+    { valeur: '"Brush Script MT", "Lucida Handwriting", cursive', libelle: 'Script (manuscrit)' },
+    { valeur: '"Comic Sans MS", "Comic Neue", cursive', libelle: 'Comic Sans' }
 ];
 
 export interface Bornes {
@@ -33,6 +48,10 @@ export const BORNES = {
 export const borner = (valeur: number, b: Bornes) =>
     Number.isFinite(valeur) ? Math.min(b.max, Math.max(b.min, Math.round(valeur))) : b.defaut;
 
+/** Style de police canvas : « italic bold », « bold », « italic » ou vide */
+export const stylePolice = (gras: boolean, italique: boolean) =>
+    `${italique ? 'italic' : ''}${italique && gras ? ' ' : ''}${gras ? 'bold' : ''}`;
+
 /** Police canvas (« bold 30px Georgia, serif ») pour une taille donnée en référence 800 px */
 export const police = (poids: string, taille: number, largeurImage: number, famille: string) =>
     `${poids ? `${poids} ` : ''}${Math.round(taille * echelle(largeurImage))}px ${famille}`;
@@ -43,11 +62,23 @@ export interface Position {
     y: number;
 }
 
+/** Alignement des lignes d'un texte dans sa boîte */
+export type Alignement = 'left' | 'center' | 'right';
+export const ALIGNEMENTS: { valeur: Alignement; libelle: string }[] = [
+    { valeur: 'left', libelle: 'À gauche' },
+    { valeur: 'center', libelle: 'Centré' },
+    { valeur: 'right', libelle: 'À droite' }
+];
+
 export interface ElementTexte extends Position {
     visible: boolean;
+    /** Plusieurs lignes : un retour à la ligne par ligne */
     texte: string;
     police: string;
     taille: number;
+    gras: boolean;
+    italique: boolean;
+    alignement: Alignement;
 }
 
 export interface Legende extends Position {
@@ -58,13 +89,20 @@ export interface Legende extends Position {
     texte: string;
     police: string;
     taille: number;
+    gras: boolean;
+    italique: boolean;
+    alignement: Alignement;
 }
 
 /** Date et nombre de mises en service (change à chaque image) */
 export interface Compteur extends Position {
     visible: boolean;
     taille: number;
+    /** Texte après « n / total » */
+    libelle: string;
 }
+
+export const LIBELLE_COMPTEUR_DEFAUT = 'mise(s) en service';
 
 export interface LogoGif extends Position {
     id: number;
@@ -100,17 +138,30 @@ export function miseEnPageParDefaut(): MiseEnPage {
     const police0 = POLICES_GIF[0]!.valeur;
     return {
         carte: { x: 0, y: 0, zoom: ZOOM_CARTE.defaut },
-        titre: { visible: true, texte: '', police: police0, taille: BORNES.titre.defaut, x: 0.03, y: 0.02 },
+        titre: {
+            visible: true,
+            texte: '',
+            police: police0,
+            taille: BORNES.titre.defaut,
+            gras: true,
+            italique: false,
+            alignement: 'center',
+            x: 0.03,
+            y: 0.02
+        },
         legende: {
             visible: false,
             statuts: true,
             texte: '',
             police: police0,
             taille: BORNES.legende.defaut,
+            gras: false,
+            italique: false,
+            alignement: 'left',
             x: 0.03,
             y: 0.8
         },
-        compteur: { visible: true, taille: BORNES.compteur.defaut, x: 0.72, y: 0.86 },
+        compteur: { visible: true, taille: BORNES.compteur.defaut, libelle: LIBELLE_COMPTEUR_DEFAUT, x: 0.72, y: 0.86 },
         logos: [],
         margeHaut: 0.1
     };

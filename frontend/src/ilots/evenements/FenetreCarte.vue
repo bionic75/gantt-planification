@@ -29,15 +29,7 @@ import { centreDe, couleursDepartements, type Contours } from './departements';
 import { genererMp4, mp4Disponible, pair } from './mp4';
 import { placerEtiquettes, type EtiquetteAPlacer } from './etiquettes';
 import { ENCARTS, projectionFranceEtEncarts, rapprocherOutreMer } from './outre-mer';
-import {
-    genererGif,
-    LIBELLE_COMPTEUR_GIF,
-    NOM_FICHIER_GIF,
-    nomFichierGif,
-    telecharger,
-    tracerContours,
-    type Projection
-} from './gif';
+import { genererGif, NOM_FICHIER_GIF, nomFichierGif, telecharger, tracerContours, type Projection } from './gif';
 import {
     dateALaPositionCompressee,
     datesDeMisesEnService,
@@ -48,7 +40,14 @@ import {
     plageMisesEnService
 } from './mises-en-service';
 import ConceptionGif from './ConceptionGif.vue';
-import { cadrerPoint, centreCadre, miseEnPageParDefaut, type CadrageCarte, type MiseEnPage } from './mise-en-page';
+import {
+    cadrerPoint,
+    centreCadre,
+    LIBELLE_COMPTEUR_DEFAUT,
+    miseEnPageParDefaut,
+    type CadrageCarte,
+    type MiseEnPage
+} from './mise-en-page';
 import { dessinerMiseEnPage, type Rendu } from './mise-en-page-rendu';
 import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
@@ -874,8 +873,7 @@ const miseEnPage = ref<MiseEnPage>(miseEnPageParDefaut());
 const conceptionOuverte = ref(false);
 /** Images des logos importés, par identifiant (hors état réactif, partagées avec la fenêtre de conception) */
 const imagesLogos = new Map<number, HTMLImageElement>();
-/** Texte après « n / total » sous la date du GIF, et nom du fichier téléchargé */
-const libelleCompteurGif = ref(LIBELLE_COMPTEUR_GIF);
+/** Nom du fichier téléchargé (le texte du compteur se règle dans la fenêtre de mise en page) */
 const nomFichier = ref('');
 /** Tailles (largeur en pixels) et définitions (nombre d'images : plus d'images, animation plus fluide) proposées */
 const TAILLES_GIF = [
@@ -1096,7 +1094,7 @@ async function creerRendu(largeur: number, margeHaut: number): Promise<Rendu | n
                 statuts,
                 compteur: {
                     date: dateFr(date),
-                    detail: `${affiches.length} / ${lecture.value.total} ${libelleCompteurGif.value.trim() || LIBELLE_COMPTEUR_GIF}`
+                    detail: `${affiches.length} / ${lecture.value.total} ${m.compteur.libelle.trim() || LIBELLE_COMPTEUR_DEFAUT}`
                 }
             });
         }
@@ -1425,10 +1423,6 @@ onBeforeUnmount(() => {
                         </select>
                     </label>
                     <label
-                        >Texte du compteur
-                        <input id="mapGifCounter" v-model="libelleCompteurGif" type="text" maxlength="40" />
-                    </label>
-                    <label
                         >Nom du fichier
                         <input
                             id="mapGifFileName"
@@ -1755,6 +1749,10 @@ onBeforeUnmount(() => {
 }
 .ev-carte__conception {
     white-space: nowrap;
+}
+.ev-carte__options-gif-champs label.ev-carte__case-gif input {
+    width: auto;
+    flex: none;
 }
 .ev-carte__options-gif-champs label.ev-carte__case-gif {
     flex-direction: row;

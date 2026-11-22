@@ -12,6 +12,8 @@ import {
     lignesLegende,
     miseEnPageParDefaut,
     police,
+    POLICES_GIF,
+    stylePolice,
     positionApresDeplacement,
     type BoiteElement
 } from './mise-en-page';
@@ -37,6 +39,20 @@ describe('mise en page du GIF / MP4', () => {
         expect(dimensionsLogo(logo(1000, 100, 60), 800)).toEqual({ largeur: 320, hauteur: 32 });
     });
 
+    it('polices : au moins une quinzaine, valeurs uniques, libellés renseignés', () => {
+        expect(POLICES_GIF.length).toBeGreaterThanOrEqual(15);
+        expect(new Set(POLICES_GIF.map(p => p.valeur)).size).toBe(POLICES_GIF.length);
+        expect(POLICES_GIF.every(p => p.libelle && p.valeur)).toBe(true);
+    });
+
+    it('style de police : italique, gras, ou rien', () => {
+        expect(stylePolice(true, true)).toBe('italic bold');
+        expect(stylePolice(true, false)).toBe('bold');
+        expect(stylePolice(false, true)).toBe('italic');
+        expect(stylePolice(false, false)).toBe('');
+        expect(police(stylePolice(true, true), 30, 800, 'Georgia')).toBe('italic bold 30px Georgia');
+    });
+
     it('mise en page par défaut : éléments dans l’image, sans logo, légende et titre visibles', () => {
         const m = miseEnPageParDefaut();
         for (const e of [m.titre, m.legende, m.compteur]) {
@@ -46,6 +62,9 @@ describe('mise en page du GIF / MP4', () => {
             expect(e.y).toBeLessThanOrEqual(1);
         }
         expect(m.logos).toEqual([]);
+        expect(m.titre).toMatchObject({ alignement: 'center', gras: true, italique: false });
+        expect(m.legende).toMatchObject({ alignement: 'left', gras: false });
+        expect(m.compteur.libelle).toBe('mise(s) en service');
         expect(m.titre.visible && m.compteur.visible).toBe(true);
         // Deux appels : objets indépendants (la fenêtre modifie sa copie)
         expect(miseEnPageParDefaut()).not.toBe(m);

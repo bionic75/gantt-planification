@@ -7,7 +7,10 @@ import {
     lignesLegende,
     police,
     REFERENCE_GIF,
+    stylePolice,
+    type Alignement,
     type BoiteElement,
+    type LigneLegende,
     type MiseEnPage
 } from './mise-en-page';
 
@@ -38,7 +41,7 @@ export function dessinerMiseEnPage(
         if (b) boites.push(b);
     }
     if (m.compteur.visible) boites.push(compteur(ctx, largeur, hauteur, m, d, e));
-    if (m.titre.visible && m.titre.texte.trim()) boites.push(titre(ctx, largeur, hauteur, m, e));
+    if (m.titre.visible && lignesDe(m.titre.texte).length) boites.push(titre(ctx, largeur, hauteur, m, e));
     for (const l of m.logos) {
         const image = d.images.get(l.id);
         if (!image) continue;
@@ -55,23 +58,40 @@ export function dessinerMiseEnPage(
     return boites;
 }
 
+/** Abscisse de départ d'une ligne de largeur `l` dans [debut, debut + disponible] selon l'alignement */
+const departLigne = (alignement: Alignement, debut: number, disponible: number, l: number) =>
+    debut + (alignement === 'center' ? (disponible - l) / 2 : alignement === 'right' ? disponible - l : 0);
+
+/** Lignes non vides d'un texte saisi (retours à la ligne), sans espaces en bordure */
+const lignesDe = (texte: string) =>
+    texte
+        .split(/\r?\n/)
+        .map(t => t.trim())
+        .filter(Boolean);
+
 function titre(ctx: Contexte, largeur: number, hauteur: number, m: MiseEnPage, e: number): BoiteElement {
     const t = m.titre;
     const tailleRef = borner(t.taille, BORNES.titre);
     const taille = tailleRef * e;
     const pad = taille * 0.4;
-    ctx.font = police('bold', tailleRef, largeur, t.police);
+    const pas = taille * 1.25;
+    const lignes = lignesDe(t.texte);
+    ctx.font = police(stylePolice(t.gras, t.italique), tailleRef, largeur, t.police);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const x = t.x * largeur;
     const y = t.y * hauteur;
-    const texte = t.texte.trim();
-    const l = Math.min(ctx.measureText(texte).width, largeur * 0.94 - pad * 2);
+    const maxTexte = largeur * 0.94 - pad * 2;
+    const l = Math.min(Math.max(...lignes.map(ligne => ctx.measureText(ligne).width)), maxTexte);
+    const h = (lignes.length - 1) * pas + taille + pad * 2;
     ctx.fillStyle = 'rgba(26,35,126,0.92)';
-    ctx.fillRect(x, y, l + pad * 2, taille + pad * 2);
+    ctx.fillRect(x, y, l + pad * 2, h);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(texte, x + pad, y + pad + taille / 2, l);
-    return { id: 'titre', x, y, largeur: l + pad * 2, hauteur: taille + pad * 2 };
+    lignes.forEach((ligne, i) => {
+        const w = Math.min(ctx.measureText(ligne).width, l);
+        ctx.fillText(ligne, departLigne(t.alignement, x + pad, l, w), y + pad + taille / 2 + i * pas, l);
+    });
+    return { id: 'titre', x, y, largeur: l + pad * 2, hauteur: h };
 }
 
 function legende(
@@ -90,11 +110,15 @@ function legende(
     const pas = taille * 1.45;
     const pad = taille * 0.6;
     const puce = taille * 0.9;
-    ctx.font = police('', tailleRef, largeur, lg.police);
+    const ecartPuce = pad * 0.6;
+    ctx.font = police(stylePolice(lg.gras, lg.italique), tailleRef, largeur, lg.police);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const texteMax = Math.max(...lignes.map(l => ctx.measureText(l.texte).width));
-    const l = Math.min(largeur * 0.6, texteMax + puce + pad * 3);
+    // Largeur d'une ligne : puce (statuts) et texte
+    const largeurLigne = (ligne: LigneLegende) =>
+        (ligne.couleur ? puce + ecartPuce : 0) + ctx.measureText(ligne.texte).width;
+    const interieur = Math.min(largeur * 0.6 - pad * 2, Math.max(...lignes.map(largeurLigne)));
+    const l = interieur + pad * 2;
     const h = lignes.length * pas + pad * 2 - (pas - taille);
     const x = lg.x * largeur;
     const y = lg.y * hauteur;
@@ -102,15 +126,17 @@ function legende(
     ctx.fillRect(x, y, l, h);
     lignes.forEach((ligne, i) => {
         const yl = y + pad + i * pas + taille / 2;
+        const debut = departLigne(lg.alignement, x + pad, interieur, Math.min(largeurLigne(ligne), interieur));
         if (ligne.couleur) {
             ctx.fillStyle = ligne.couleur;
-            ctx.fillRect(x + pad, yl - puce / 2, puce, puce);
+            ctx.fillRect(debut, yl - puce / 2, puce, puce);
             ctx.strokeStyle = '#37474f';
             ctx.lineWidth = 1;
-            ctx.strokeRect(x + pad, yl - puce / 2, puce, puce);
+            ctx.strokeRect(debut, yl - puce / 2, puce, puce);
         }
         ctx.fillStyle = '#263238';
-        ctx.fillText(ligne.texte, x + pad + (ligne.couleur ? puce + pad * 0.6 : 0), yl, l - pad * 2);
+        const decalage = ligne.couleur ? puce + ecartPuce : 0;
+        ctx.fillText(ligne.texte, debut + decalage, yl, Math.max(10, interieur - decalage));
     });
     return { id: 'legende', x, y, largeur: l, hauteur: h };
 }
