@@ -143,6 +143,11 @@ export function depuisMois(date: string | null, maintenant = new Date()): string
 
 // ---------- Périodes de MAD et particularités ----------
 
+/** Période de l'historique qui couvre le jour (AAAA-MM-JJ) : la période « en cours » */
+export function periodeCouvrant(historique: PeriodeMad[], jour: string): PeriodeMad | undefined {
+    return historique.find(p => p.date_debut <= jour && (!p.date_fin || p.date_fin >= jour));
+}
+
 /** Période saisie incomplète ou incohérente : message, ou null */
 export function periodeIncomplete(
     debut: string,

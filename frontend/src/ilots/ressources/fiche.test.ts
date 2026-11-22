@@ -8,6 +8,7 @@ import {
     formulaireFiche,
     lignesEmail,
     particulariteIncomplete,
+    periodeCouvrant,
     periodeIncomplete,
     tauxEnregistre
 } from './fiche';
@@ -109,6 +110,18 @@ describe('fiche', () => {
         expect(depuisMois('2026-03-01', new Date('2026-11-02'))).toBe(' (depuis 8 mois)');
         expect(depuisMois('2026-11-01', new Date('2026-11-02'))).toBe('');
         expect(depuisMois(null)).toBe('');
+    });
+});
+
+describe('période de MAD en cours', () => {
+    const h = [
+        { id: 1, date_debut: '2026-11-01', date_fin: '2026-11-30', taux: 0, volante: 1, jours_max: 5 },
+        { id: 2, date_debut: '2027-01-01', date_fin: null, taux: 50, volante: 0, jours_max: null }
+    ];
+    it("seule la période qui couvre le jour est « en cours » : une période à venir sans date de fin ne l'est pas", () => {
+        expect(periodeCouvrant(h, '2026-11-22')?.id).toBe(1);
+        expect(periodeCouvrant(h, '2027-03-01')?.id).toBe(2);
+        expect(periodeCouvrant(h, '2026-12-15')).toBeUndefined();
     });
 });
 

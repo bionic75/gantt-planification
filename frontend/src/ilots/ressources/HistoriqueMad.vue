@@ -11,7 +11,7 @@ import { emettre } from '@/evenements';
 import { dateFr } from './calculs';
 import FenetreParticularites from './FenetreParticularites.vue';
 import { useRessourcesStore } from './magasin';
-import { periodeIncomplete } from './fiche';
+import { periodeCouvrant, periodeIncomplete } from './fiche';
 
 const props = defineProps<{ ressource: Ressource; consultation: boolean }>();
 /** Historique lu (taux enregistré avec la fiche) */
@@ -37,6 +37,8 @@ async function charger() {
 onMounted(charger);
 
 const triees = computed(() => [...historique.value].sort((a, b) => a.date_debut.localeCompare(b.date_debut)));
+/** Période en cours aujourd'hui (une période à venir, même sans date de fin, ne l'est pas) */
+const enCours = computed(() => periodeCouvrant(historique.value, new Date().toLocaleDateString('sv-SE'))?.id);
 
 // ---------- Période ----------
 
@@ -136,13 +138,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                         <td>{{ dateFr(p.date_debut) }}</td>
                         <td>
                             <template v-if="p.date_fin">{{ dateFr(p.date_fin) }}</template>
-                            <em v-else class="historique__en-cours">En cours</em>
+                            <em v-else class="historique__en-cours">Sans date de fin</em>
                         </td>
                         <td class="historique__centre">
                             <span v-if="p.volante" class="historique__type historique__type--volante"
                                 >✈️ Volante · {{ p.jours_max }} j max</span
                             >
                             <span v-else class="historique__type">Classique</span>
+                            <span v-if="p.id === enCours" class="historique__badge">En cours</span>
                         </td>
                         <td class="historique__taux" :class="{ 'historique__taux--nul': p.taux === 0 }">
                             <template v-if="p.volante">–</template>
@@ -298,6 +301,15 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
 }
 .historique__tableau tbody tr {
     border-bottom: 1px solid #e0e0e0;
+}
+.historique__badge {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #2e7d32;
+    color: #fff;
+    font-size: 0.75em;
+    white-space: nowrap;
 }
 .historique__en-cours {
     color: #999;
