@@ -353,6 +353,26 @@ surReouverture(() => void ouvrir());
             >
                 <i class="dot aff-plan__passe"></i>SAMU déjà en service
             </button>
+            <span class="sep"></span>
+            <button
+                type="button"
+                class="chip"
+                :class="{ off: masquee('_conges') }"
+                :title="`${masquee('_conges') ? 'Afficher' : 'Masquer'} la ligne des congés scolaires de la zone de chaque SAMU (A, B ou C)`"
+                @click="magasin.basculerEtape('_conges')"
+            >
+                <span class="aff-plan__zones"><i class="zone-A"></i><i class="zone-B"></i><i class="zone-C"></i></span
+                >Congés scolaires
+            </button>
+            <button
+                type="button"
+                class="chip"
+                :class="{ off: masquee('_feries') }"
+                :title="`${masquee('_feries') ? 'Afficher' : 'Masquer'} la ligne des jours fériés`"
+                @click="magasin.basculerEtape('_feries')"
+            >
+                <i class="aff-plan__ferie"></i>Jours fériés
+            </button>
             <span class="aff-muted aff-plan__aide">Cliquer sur une rubrique pour l'afficher / la masquer</span>
         </template>
     </div>
@@ -539,6 +559,28 @@ surReouverture(() => void ouvrir());
 </template>
 
 <style>
+.aff-plan__zones {
+    display: inline-flex;
+    gap: 1px;
+}
+.aff-plan__zones i {
+    width: 8px !important;
+    height: 4px !important;
+    border-radius: 1px !important;
+}
+.aff-plan__zones .zone-A {
+    background: #e91e63;
+}
+.aff-plan__zones .zone-B {
+    background: #2196f3;
+}
+.aff-plan__zones .zone-C {
+    background: #ff9800;
+}
+.aff-plan__ferie {
+    height: 4px !important;
+    background: #2e7d32;
+}
 .aff-plan__passe {
     background: #7a8799;
 }

@@ -74,6 +74,16 @@ describe('lignes de congés et de jours fériés', () => {
         expect(cellule('2031-03-10', avec('B'))).not.toContain('aff-repos');
         expect(cellule('2031-03-09', avec('B'))).toContain('aff-repos conge');
     });
+    it('couleur propre à chaque zone (comme dans la planification)', () => {
+        expect(cellule('2031-03-05', avec('B'))).toContain('zone-B');
+    });
+    it('masquables par la légende : « _conges » et « _feries »', () => {
+        const sans = (cle: string) => ({ ...avec('B'), masquees: new Set([cle]) });
+        expect(cellule('2031-03-05', sans('_conges'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-03', sans('_conges'))).toContain('aff-repos ferie');
+        expect(cellule('2031-03-03', sans('_feries'))).not.toContain('aff-repos');
+        expect(cellule('2031-03-05', sans('_feries'))).toContain('aff-repos conge');
+    });
     it('sans données : cellule inchangée', () => {
         expect(cellule('2031-03-05', contexte([p]))).toBe('');
     });

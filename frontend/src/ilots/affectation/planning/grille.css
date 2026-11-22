@@ -306,7 +306,17 @@
     z-index: 2;
 }
 .aff-repos.conge {
-    background: #ef6c00;
+    background: #ff9800;
+}
+/* Couleurs des zones scolaires, comme dans la planification : A rose, B bleu, C orange */
+.aff-repos.conge.zone-A {
+    background: #e91e63;
+}
+.aff-repos.conge.zone-B {
+    background: #2196f3;
+}
+.aff-repos.conge.zone-C {
+    background: #ff9800;
 }
 .aff-repos.ferie {
     background: #2e7d32;
