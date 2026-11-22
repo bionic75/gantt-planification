@@ -127,7 +127,9 @@ async function changerBornes() {
     erreurBornes.value = '';
     magasin.definirBornes(from || to ? { from, to } : null);
     await nextTick();
+    // Nouvelle période : centrée sur la date du jour si elle en fait partie, sinon au début
     if (grille.value) grille.value.scrollLeft = 0;
+    allerAujourdhui();
 }
 
 function toutAfficher() {
@@ -205,6 +207,28 @@ function allerAujourdhui() {
     box.scrollLeft = Math.max(0, cellule.offsetLeft - box.clientWidth / 2 + cellule.offsetWidth / 2);
 }
 
+/**
+ * Centre la grille sur la date du jour dès qu'elle est visible : à la réouverture de l'onglet, la grille est encore
+ * masquée (largeur nulle) quand les données arrivent, et le défilement calculé serait faux
+ */
+let observateur: ResizeObserver | null = null;
+function centrerQuandVisible() {
+    const box = grille.value;
+    if (!box) return;
+    observateur?.disconnect();
+    if (box.clientWidth > 0) {
+        allerAujourdhui();
+        return;
+    }
+    observateur = new ResizeObserver(() => {
+        if (box.clientWidth === 0) return;
+        observateur?.disconnect();
+        allerAujourdhui();
+    });
+    observateur.observe(box);
+}
+onBeforeUnmount(() => observateur?.disconnect());
+
 // Clics dans la grille : affectation (étape), retrait d'une ligne, rafraîchissement depuis Asana
 const affectation = ref<{ id: number; etape: string } | null>(null);
 
@@ -275,7 +299,7 @@ async function ouvrir() {
     await sessionStore.charger();
     await magasin.charger();
     await nextTick();
-    allerAujourdhui();
+    centrerQuandVisible();
 }
 
 let arreterEcoute: (() => void) | null = null;
