@@ -47,6 +47,18 @@ import {
     nbMisesEnService,
     plageMisesEnService
 } from './mises-en-service';
+import {
+    BORNES,
+    borner,
+    dimensionsLogo,
+    hauteurBandeau,
+    lignesLegende,
+    police,
+    POLICES_GIF,
+    POSITIONS_LOGO,
+    REFERENCE_GIF,
+    type LogoGif
+} from './mise-en-page';
 import { fondMotif, idMotif, svgMotif } from './motifs';
 import { useEvenementsStore } from './magasin';
 
@@ -868,6 +880,57 @@ function arreter() {
 const exportGif = ref({ enCours: false, texte: '' });
 /** Titre inscrit en haut du GIF (facultatif) */
 const titreGif = ref('');
+/** Mise en page : police et taille du titre ; légende (statuts, texte libre) ; logos importés */
+const policeTitre = ref(POLICES_GIF[0]!.valeur);
+const tailleTitre = ref<number>(BORNES.titre.defaut);
+const legendeStatutsGif = ref(false);
+const texteLegendeGif = ref('');
+const policeLegende = ref(POLICES_GIF[0]!.valeur);
+const tailleLegende = ref<number>(BORNES.legende.defaut);
+const logosGif = ref<LogoGif[]>([]);
+/** Images des logos (hors état réactif), par identifiant */
+const imagesLogos = new Map<number, HTMLImageElement>();
+let prochainLogo = 1;
+const TAILLE_MAX_LOGO = 2 * 1024 * 1024;
+
+/** Logo choisi dans un fichier image (PNG, JPEG, SVG, WebP ; 2 Mo au plus), ajouté en haut à gauche */
+async function ajouterLogo(e: Event) {
+    const entree = e.target as HTMLInputElement;
+    const fichiers = [...(entree.files ?? [])];
+    entree.value = '';
+    for (const f of fichiers) {
+        if (!f.type.startsWith('image/')) {
+            message.value = `« ${f.name} » n'est pas une image.`;
+            continue;
+        }
+        if (f.size > TAILLE_MAX_LOGO) {
+            message.value = `« ${f.name} » dépasse 2 Mo.`;
+            continue;
+        }
+        const url = URL.createObjectURL(f);
+        try {
+            const image = new Image();
+            image.src = url;
+            await image.decode();
+            // Une image SVG sans dimensions se décode avec 0 × 0 : proportions 2 pour 1 par défaut
+            const largeur = image.naturalWidth || 300;
+            const hauteur = image.naturalHeight || 150;
+            const id = prochainLogo++;
+            imagesLogos.set(id, image);
+            logosGif.value = [
+                ...logosGif.value,
+                { id, nom: f.name, largeur, hauteur, taille: BORNES.logo.defaut, position: 'titre-gauche' }
+            ];
+        } catch {
+            message.value = `« ${f.name} » n'a pas pu être lu comme une image.`;
+            URL.revokeObjectURL(url);
+        }
+    }
+}
+function retirerLogo(id: number) {
+    imagesLogos.delete(id);
+    logosGif.value = logosGif.value.filter(l => l.id !== id);
+}
 /** Texte après « n / total » sous la date du GIF, et nom du fichier téléchargé */
 const libelleCompteurGif = ref(LIBELLE_COMPTEUR_GIF);
 const nomFichier = ref('');
@@ -1007,14 +1070,7 @@ function etiquettesGif(
     ctx.restore();
 }
 
-/** Hauteur du bandeau du titre (0 sans titre) : la carte est cadrée en dessous */
-function hauteurBandeauTitre(hauteur: number, titre: string) {
-    if (!titre) return 0;
-    const taille = Math.round(hauteur * 0.05);
-    return Math.round(taille * 1.1 + Math.round(taille * 0.5) * 1.6);
-}
-
-/** Titre (facultatif) en haut de l'image ; date et compteur dans le coin inférieur droit */
+/** Date et compteur dans le coin inférieur droit */
 function bandeauGif(
     ctx: CanvasRenderingContext2D,
     largeur: number,
@@ -1022,21 +1078,12 @@ function bandeauGif(
     date: string,
     nb: number,
     total: number,
-    titre: string,
     libelle: string
 ) {
     const taille = Math.round(hauteur * 0.05);
     const marge = Math.round(taille * 0.5);
     ctx.save();
     ctx.textBaseline = 'top';
-    if (titre) {
-        ctx.font = `bold ${Math.round(taille * 1.1)}px sans-serif`;
-        ctx.fillStyle = 'rgba(26,35,126,0.92)';
-        ctx.fillRect(0, 0, largeur, hauteurBandeauTitre(hauteur, titre));
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(titre, largeur / 2, marge * 0.8, largeur - marge * 2);
-    }
     const texte1 = dateFr(date);
     const texte2 = `${nb} / ${total} ${libelle}`;
     const police2 = `${Math.round(taille * 0.6)}px sans-serif`;
@@ -1060,6 +1107,101 @@ function bandeauGif(
     ctx.restore();
 }
 
+/** Logo sur un fond blanc léger (lisible sur le bandeau comme sur la carte) */
+function dessinerLogo(
+    ctx: CanvasRenderingContext2D,
+    l: LogoGif,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    e: number
+) {
+    const image = imagesLogos.get(l.id);
+    if (!image) return;
+    const pad = Math.round(4 * e);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.fillRect(x - pad, y - pad, w + pad * 2, h + pad * 2);
+    ctx.drawImage(image, x, y, w, h);
+}
+
+/**
+ * Éléments fixes de la mise en page, dessinés une fois sur le fond : bandeau du titre (avec les logos du haut),
+ * logos du bas et légende en bas à gauche
+ */
+function calqueMiseEnPage(ctx: CanvasRenderingContext2D, largeur: number, hauteur: number, haut: number) {
+    const e = largeur / REFERENCE_GIF;
+    const marge = Math.round(12 * e);
+    const titre = titreGif.value.trim();
+    ctx.save();
+    if (haut) {
+        ctx.fillStyle = 'rgba(26,35,126,0.92)';
+        ctx.fillRect(0, 0, largeur, haut);
+    }
+    // Logos du bandeau : à gauche et à droite, centrés verticalement ; le titre occupe l'espace restant
+    let xGauche = marge;
+    let xDroite = largeur - marge;
+    for (const l of logosGif.value.filter(l => l.position !== 'bas-gauche')) {
+        const { largeur: w, hauteur: h } = dimensionsLogo(l, largeur);
+        const y = (haut - h) / 2;
+        if (l.position === 'titre-gauche') {
+            dessinerLogo(ctx, l, xGauche, y, w, h, e);
+            xGauche += w + marge;
+        } else {
+            xDroite -= w;
+            dessinerLogo(ctx, l, xDroite, y, w, h, e);
+            xDroite -= marge;
+        }
+    }
+    if (titre) {
+        ctx.font = police('bold', borner(tailleTitre.value, BORNES.titre), largeur, policeTitre.value);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(titre, (xGauche + xDroite) / 2, haut / 2, Math.max(10, xDroite - xGauche));
+    }
+    // Légende : statuts affichés puis texte libre, dans un cadre en bas à gauche
+    const lignes = lignesLegende(legende.value, legendeStatutsGif.value, texteLegendeGif.value);
+    let basLegende = hauteur - marge;
+    if (lignes.length) {
+        const tailleRef = borner(tailleLegende.value, BORNES.legende);
+        const taille = tailleRef * e;
+        const pas = taille * 1.45;
+        const pad = taille * 0.6;
+        const puce = taille * 0.9;
+        ctx.font = police('', tailleRef, largeur, policeLegende.value);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const texteMax = Math.max(...lignes.map(l => ctx.measureText(l.texte).width));
+        const largeurBoite = Math.min(largeur * 0.6, texteMax + puce + pad * 3);
+        const hauteurBoite = lignes.length * pas + pad * 2 - (pas - taille);
+        const yBoite = hauteur - marge - hauteurBoite;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillRect(marge, yBoite, largeurBoite, hauteurBoite);
+        lignes.forEach((l, i) => {
+            const y = yBoite + pad + i * pas + taille / 2;
+            if (l.couleur) {
+                ctx.fillStyle = l.couleur;
+                ctx.fillRect(marge + pad, y - puce / 2, puce, puce);
+                ctx.strokeStyle = '#37474f';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(marge + pad, y - puce / 2, puce, puce);
+            }
+            ctx.fillStyle = '#263238';
+            ctx.fillText(l.texte, marge + pad + (l.couleur ? puce + pad * 0.6 : 0), y, largeurBoite - pad * 2);
+        });
+        basLegende = yBoite - marge * 0.6;
+    }
+    // Logos du bas : empilés au-dessus de la légende
+    for (const l of logosGif.value.filter(l => l.position === 'bas-gauche')) {
+        const { largeur: w, hauteur: h } = dimensionsLogo(l, largeur);
+        basLegende -= h;
+        dessinerLogo(ctx, l, marge, basLegende, w, h, e);
+        basLegende -= marge;
+    }
+    ctx.restore();
+}
+
 /** Animation des mises en service (GIF ou vidéo MP4), d'après la vue actuelle de la carte */
 async function exporterAnimation(format: 'gif' | 'mp4') {
     const cible = carte;
@@ -1078,9 +1220,12 @@ async function exporterAnimation(format: 'gif' | 'mp4') {
         const conteneurCarte = cible.getContainer();
         const echelle = largeur / conteneurCarte.clientWidth;
         const hauteur = pair(Math.round(conteneurCarte.clientHeight * echelle));
-        const titre = titreGif.value.trim();
-        // La carte est cadrée sous le bandeau du titre (sinon il recouvre le nord de la France)
-        const haut = hauteurBandeauTitre(hauteur, titre);
+        // La carte est cadrée sous le bandeau du titre et des logos (sinon il recouvre le nord de la France)
+        const haut = hauteurBandeau(
+            largeur,
+            { texte: titreGif.value, taille: borner(tailleTitre.value, BORNES.titre) },
+            logosGif.value
+        );
         const reduction = (hauteur - haut) / hauteur;
         // Outre-mer demandée : France entière et encarts cadrés d'office ; sinon, vue actuelle de la carte
         const encarts = franceSeule.value || outreMerGif.value;
@@ -1096,6 +1241,7 @@ async function exporterAnimation(format: 'gif' | 'mp4') {
                   };
         const contoursDuGif = contoursAffiches(contours, encarts);
         const base = fondDuGif(largeur, hauteur, projeter, contours, regions, encarts);
+        calqueMiseEnPage(base.getContext('2d')!, largeur, hauteur, haut);
         const dates = compresser.value
             ? datesDesImagesCompressees(datesMes, definitionGif.value)
             : datesDesImages(periode, definitionGif.value);
@@ -1127,7 +1273,6 @@ async function exporterAnimation(format: 'gif' | 'mp4') {
                     date,
                     affiches.length,
                     lecture.value.total,
-                    titre,
                     libelleCompteurGif.value.trim() || LIBELLE_COMPTEUR_GIF
                 );
             },
@@ -1414,6 +1559,94 @@ onBeforeUnmount(() => {
                             placeholder="Facultatif"
                         />
                     </label>
+                    <fieldset class="ev-carte__mep">
+                        <legend>Titre</legend>
+                        <label
+                            >Police
+                            <select id="mapGifTitleFont" v-model="policeTitre">
+                                <option v-for="p in POLICES_GIF" :key="p.valeur" :value="p.valeur">
+                                    {{ p.libelle }}
+                                </option>
+                            </select>
+                        </label>
+                        <label
+                            >Taille : {{ tailleTitre }}
+                            <input
+                                id="mapGifTitleSize"
+                                v-model.number="tailleTitre"
+                                type="range"
+                                :min="BORNES.titre.min"
+                                :max="BORNES.titre.max"
+                            />
+                        </label>
+                    </fieldset>
+                    <fieldset class="ev-carte__mep">
+                        <legend>Légende</legend>
+                        <label class="ev-carte__case-gif"
+                            ><input id="mapGifLegend" v-model="legendeStatutsGif" type="checkbox" />
+                            Statuts affichés (couleurs de la carte)
+                        </label>
+                        <label
+                            >Texte libre (une ligne par ligne de légende)
+                            <textarea
+                                id="mapGifLegendText"
+                                v-model="texteLegendeGif"
+                                rows="2"
+                                maxlength="300"
+                                placeholder="Facultatif"
+                            ></textarea>
+                        </label>
+                        <label
+                            >Police
+                            <select id="mapGifLegendFont" v-model="policeLegende">
+                                <option v-for="p in POLICES_GIF" :key="p.valeur" :value="p.valeur">
+                                    {{ p.libelle }}
+                                </option>
+                            </select>
+                        </label>
+                        <label
+                            >Taille : {{ tailleLegende }}
+                            <input
+                                id="mapGifLegendSize"
+                                v-model.number="tailleLegende"
+                                type="range"
+                                :min="BORNES.legende.min"
+                                :max="BORNES.legende.max"
+                            />
+                        </label>
+                    </fieldset>
+                    <fieldset class="ev-carte__mep">
+                        <legend>Logos</legend>
+                        <label
+                            >Ajouter un logo (PNG, JPEG, SVG ou WebP ; 2 Mo au plus)
+                            <input
+                                id="mapGifLogoFile"
+                                type="file"
+                                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                                multiple
+                                @change="ajouterLogo"
+                            />
+                        </label>
+                        <div v-for="l in logosGif" :key="l.id" class="ev-carte__logo" data-testid="logo-gif">
+                            <strong :title="l.nom">{{ l.nom }}</strong>
+                            <select v-model="l.position" :aria-label="`Position de ${l.nom}`">
+                                <option v-for="p in POSITIONS_LOGO" :key="p.valeur" :value="p.valeur">
+                                    {{ p.libelle }}
+                                </option>
+                            </select>
+                            <label
+                                >Taille : {{ l.taille }}
+                                <input
+                                    v-model.number="l.taille"
+                                    type="range"
+                                    :min="BORNES.logo.min"
+                                    :max="BORNES.logo.max"
+                                    :aria-label="`Taille de ${l.nom}`"
+                                />
+                            </label>
+                            <button type="button" :aria-label="`Retirer ${l.nom}`" @click="retirerLogo(l.id)">✕</button>
+                        </div>
+                    </fieldset>
                     <label class="ev-carte__case-gif"
                         ><input id="mapGifOutreMer" v-model="outreMerGif" type="checkbox" />
                         Outre-mer en encarts (cadre la France entière)
@@ -1757,6 +1990,32 @@ onBeforeUnmount(() => {
     flex-direction: row;
     align-items: center;
     gap: 6px;
+}
+.ev-carte__mep {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid #cfd8dc;
+    border-radius: 6px;
+}
+.ev-carte__mep legend {
+    padding: 0 4px;
+    font-weight: 600;
+}
+.ev-carte__logo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 8px;
+    align-items: center;
+    padding: 4px 0;
+    border-top: 1px dashed #cfd8dc;
+}
+.ev-carte__logo strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .ev-carte__etiquette-carte {
     /* Le repère Leaflet fait 0 × 0 : sans largeur propre, l'étiquette aurait une emprise vide (invisible pour les tests) */
