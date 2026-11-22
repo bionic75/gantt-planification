@@ -60,3 +60,26 @@ describe('rapprocherOutreMer', () => {
         expect(boite(contours.features[1]!).x0).toBe(-62);
     });
 });
+
+describe('projectionFranceEtEncarts', () => {
+    it("tient dans l'image, sous le bandeau, avec les encarts d'outre-mer", async () => {
+        const { projectionFranceEtEncarts, ENCARTS } = await import('./outre-mer');
+        const p = projectionFranceEtEncarts(800, 600, 60);
+        const points = [
+            p(-13.8, 41.8),
+            p(9.6, 51.1),
+            ...Object.values(ENCARTS).flatMap(e => [p(e.lng - e.cote / 2, e.lat - e.cote / 2)])
+        ];
+        for (const [x, y] of points) {
+            expect(x).toBeGreaterThanOrEqual(0);
+            expect(x).toBeLessThanOrEqual(800);
+            expect(y).toBeGreaterThanOrEqual(60);
+            expect(y).toBeLessThanOrEqual(600);
+        }
+    });
+    it('le nord est au-dessus du sud', async () => {
+        const { projectionFranceEtEncarts } = await import('./outre-mer');
+        const p = projectionFranceEtEncarts(800, 600);
+        expect(p(2, 50)[1]).toBeLessThan(p(2, 43)[1]);
+    });
+});

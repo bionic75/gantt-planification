@@ -65,3 +65,26 @@ export function rapprocherOutreMer(contours: Contours): Contours {
         })
     };
 }
+
+/** Étendue de la France avec les encarts d'outre-mer (degrés) */
+const ETENDUE = { sud: 41.8, nord: 51.1, ouest: -13.8, est: 9.6 };
+const mercator = (lat: number) => Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2));
+
+/**
+ * Projection (lng, lat → pixels) qui cadre la France et ses encarts d'outre-mer dans une image,
+ * sous un bandeau de hauteur `haut`, indépendamment de la vue de la carte affichée
+ */
+export function projectionFranceEtEncarts(
+    largeur: number,
+    hauteur: number,
+    haut = 0,
+    marge = 20
+): (lng: number, lat: number) => [number, number] {
+    const largeurDeg = rad(ETENDUE.est - ETENDUE.ouest);
+    const hauteurMerc = mercator(ETENDUE.nord) - mercator(ETENDUE.sud);
+    const zone = hauteur - haut;
+    const k = Math.min((largeur - 2 * marge) / largeurDeg, (zone - 2 * marge) / hauteurMerc);
+    const cLng = rad((ETENDUE.est + ETENDUE.ouest) / 2);
+    const cMerc = (mercator(ETENDUE.nord) + mercator(ETENDUE.sud)) / 2;
+    return (lng, lat) => [largeur / 2 + (rad(lng) - cLng) * k, haut + zone / 2 - (mercator(lat) - cMerc) * k];
+}
