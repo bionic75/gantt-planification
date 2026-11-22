@@ -4,7 +4,16 @@
 import { defineStore } from 'pinia';
 import { computed, ref, shallowRef } from 'vue';
 import { apiAffectation, type ConfigAffectation, type Deploiement, type RessourceAffectable } from '@/api/affectation';
-import { bornesValides, type BornesGrille, type CleTri, type ContexteGrille, type TriGrille } from './grille';
+import { apiAteliers } from '@/api/ateliers';
+import { apiPlanification } from '@/api/planification';
+import {
+    bornesValides,
+    type BornesGrille,
+    type CleTri,
+    type ContexteGrille,
+    type Repos,
+    type TriGrille
+} from './grille';
 import type { Echelle } from './outils';
 
 const lire = <T>(cle: string, defaut: T): T => {
@@ -49,7 +58,11 @@ export const usePlanningAffectationStore = defineStore('affectation-planning', (
         )
     );
 
+    /** Congés scolaires (par zone) et jours fériés de l'administration ; zone de chaque SAMU (par déploiement) */
+    const repos = shallowRef<Repos | null>(null);
+
     const contexte = computed<ContexteGrille>(() => ({
+        repos: repos.value ?? undefined,
         deploiements: deploiements.value,
         config: config.value,
         ressources: ressources.value,
@@ -82,6 +95,7 @@ export const usePlanningAffectationStore = defineStore('affectation-planning', (
             config.value = cfg;
             charge.value = true;
             version.value++;
+            void chargerRepos();
         } catch (e) {
             erreur.value = e instanceof Error ? e.message : String(e);
             return;
@@ -94,6 +108,26 @@ export const usePlanningAffectationStore = defineStore('affectation-planning', (
             .catch(() => {
                 /* ignoré */
             });
+    }
+
+    /** Congés scolaires et jours fériés : facultatifs, la grille s'affiche sans eux s'ils ne sont pas lisibles */
+    async function chargerRepos() {
+        const [conges, dates, meta] = await Promise.all([
+            apiPlanification.congesDesFichiers().catch(() => null),
+            apiPlanification.datesParticulieres().catch(() => null),
+            apiAteliers.meta().catch(() => null)
+        ]);
+        const zones = new Map((meta?.samus ?? []).map(x => [x.project_id, x.zone]));
+        const parZone: Repos['conges'] = {};
+        for (const z of ['A', 'B', 'C'] as const) parZone[z] = conges?.periods?.[`zone${z}`] ?? [];
+        repos.value = {
+            zoneDe: id => zones.get(id) ?? null,
+            conges: parZone,
+            feries: (dates?.dates ?? [])
+                .filter(d => /f[ée]ri[ée]/i.test(d.config?.label ?? ''))
+                .map(d => ({ date: d.date, endDate: d.endDate, libelle: d.summary || d.config?.label || 'Jour férié' }))
+        };
+        version.value++;
     }
 
     /** Ressources (affectation) : relues si elles n'ont pas encore été chargées */

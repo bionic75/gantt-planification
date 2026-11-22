@@ -66,6 +66,7 @@ const ECHELLES: [Echelle, string, string][] = [
 async function changerEchelle(z: Echelle) {
     magasin.zoom = z;
     await nextTick();
+    centrageAuto = true;
     allerAujourdhui();
 }
 
@@ -127,7 +128,10 @@ async function changerBornes() {
     erreurBornes.value = '';
     magasin.definirBornes(from || to ? { from, to } : null);
     await nextTick();
+    // Nouvelle période : centrée sur la date du jour si elle en fait partie, sinon au début
     if (grille.value) grille.value.scrollLeft = 0;
+    centrageAuto = true;
+    allerAujourdhui();
 }
 
 function toutAfficher() {
@@ -191,11 +195,40 @@ watch(
         );
         const coin = box.querySelector<HTMLElement>('th.corner');
         if (coin) coin.style.top = '0px';
-        box.scrollLeft = defilement.left;
-        box.scrollTop = defilement.top;
+        // Tant que l'utilisateur n'a pas défilé lui-même, la grille reste centrée sur aujourd'hui (données arrivées
+        // après le centrage, largeurs de colonnes qui changent) ; ensuite, sa position est conservée
+        if (centrageAuto) allerAujourdhui();
+        else {
+            box.scrollLeft = defilement.left;
+            box.scrollTop = defilement.top;
+        }
+        suivreTableau(box);
     },
     { flush: 'post' }
 );
+
+/** Rubrique de la légende affichée ou masquée : la grille est redessinée (colonnes de largeurs différentes) et se replace sur aujourd'hui */
+function basculerRubrique(cle: string) {
+    centrageAuto = true;
+    magasin.basculerEtape(cle);
+}
+
+/** La grille se recentre seule sur aujourd'hui (jusqu'au premier défilement de l'utilisateur) */
+let centrageAuto = false;
+const arreterCentrage = () => {
+    centrageAuto = false;
+};
+/** Largeur du tableau modifiée (colonnes, polices) : recentrage tant que le centrage est automatique */
+let observateurTableau: ResizeObserver | null = null;
+function suivreTableau(box: HTMLElement) {
+    observateurTableau?.disconnect();
+    const table = box.querySelector('table');
+    if (!table || typeof ResizeObserver === 'undefined') return;
+    observateurTableau = new ResizeObserver(() => {
+        if (centrageAuto) allerAujourdhui();
+    });
+    observateurTableau.observe(table);
+}
 
 /** Défilement sur la date du jour (centrée) */
 function allerAujourdhui() {
@@ -204,6 +237,31 @@ function allerAujourdhui() {
     if (!box || !cellule) return;
     box.scrollLeft = Math.max(0, cellule.offsetLeft - box.clientWidth / 2 + cellule.offsetWidth / 2);
 }
+
+/**
+ * Centre la grille sur la date du jour dès qu'elle est visible : à la réouverture de l'onglet, la grille est encore
+ * masquée (largeur nulle) quand les données arrivent, et le défilement calculé serait faux
+ */
+let observateur: ResizeObserver | null = null;
+function centrerQuandVisible() {
+    const box = grille.value;
+    if (!box) return;
+    observateur?.disconnect();
+    if (box.clientWidth > 0) {
+        allerAujourdhui();
+        return;
+    }
+    observateur = new ResizeObserver(() => {
+        if (box.clientWidth === 0) return;
+        observateur?.disconnect();
+        allerAujourdhui();
+    });
+    observateur.observe(box);
+}
+onBeforeUnmount(() => {
+    observateur?.disconnect();
+    observateurTableau?.disconnect();
+});
 
 // Clics dans la grille : affectation (étape), retrait d'une ligne, rafraîchissement depuis Asana
 const affectation = ref<{ id: number; etape: string } | null>(null);
@@ -233,6 +291,11 @@ function toucheGrille(e: KeyboardEvent) {
 }
 
 // Largeur de la colonne SAMU : poignée glissée à la souris, mémorisée
+/** Appui dans la grille (aussi sur sa barre de défilement) : l'utilisateur reprend la main sur le défilement */
+function pointeurGrille(ev: PointerEvent) {
+    arreterCentrage();
+    redimensionner(ev);
+}
 function redimensionner(ev: PointerEvent) {
     const poignee = (ev.target as HTMLElement).closest('.aff-rs');
     if (!poignee) return;
@@ -272,10 +335,11 @@ function annoncer(texte: string, erreur = false, duree = 6000) {
 // ── Ouverture ────────────────────────────────────────────────────────────────
 
 async function ouvrir() {
+    centrageAuto = true;
     await sessionStore.charger();
     await magasin.charger();
     await nextTick();
-    allerAujourdhui();
+    centrerQuandVisible();
 }
 
 let arreterEcoute: (() => void) | null = null;
@@ -303,7 +367,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee(k) }"
                 :title="`${masquee(k) ? 'Afficher' : 'Masquer'} : ${libelle(k)}`"
-                @click="magasin.basculerEtape(k)"
+                @click="basculerRubrique(k)"
             >
                 <i :style="fond(k)"></i>{{ libelle(k) }}
             </button>
@@ -315,7 +379,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee(k) }"
                 :title="`${masquee(k) ? 'Afficher' : 'Masquer'} : ${libelle(k)}`"
-                @click="magasin.basculerEtape(k)"
+                @click="basculerRubrique(k)"
             >
                 <i class="dot" :style="fond(k)"></i>{{ libelle(k) }}
             </button>
@@ -327,7 +391,7 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee(k) }"
                 :title="`${masquee(k) ? 'Afficher' : 'Masquer'} : ${libelle(k)}`"
-                @click="magasin.basculerEtape(k)"
+                @click="basculerRubrique(k)"
             >
                 <i :style="fond(k)"></i>{{ libelle(k) }}
             </button>
@@ -339,7 +403,7 @@ surReouverture(() => void ouvrir());
                 role="switch"
                 :aria-checked="masquee('_tri') ? 'false' : 'true'"
                 :title="`${masquee('_tri') ? 'Afficher' : 'Masquer'} les trigrammes des experts dans les étapes (VFT, formation, accompagnement, prérequis, visite métier)`"
-                @click="magasin.basculerEtape('_tri')"
+                @click="basculerRubrique('_tri')"
             >
                 <span class="sw"><i></i></span>Trigrammes des experts
             </button>
@@ -349,9 +413,29 @@ surReouverture(() => void ouvrir());
                 class="chip"
                 :class="{ off: masquee('_past') }"
                 :title="`${masquee('_past') ? 'Afficher' : 'Masquer'} les SAMU dont la date de mise en service est passée`"
-                @click="magasin.basculerEtape('_past')"
+                @click="basculerRubrique('_past')"
             >
                 <i class="dot aff-plan__passe"></i>SAMU déjà en service
+            </button>
+            <span class="sep"></span>
+            <button
+                type="button"
+                class="chip"
+                :class="{ off: masquee('_conges') }"
+                :title="`${masquee('_conges') ? 'Afficher' : 'Masquer'} la ligne des congés scolaires de la zone de chaque SAMU (A, B ou C)`"
+                @click="basculerRubrique('_conges')"
+            >
+                <span class="aff-plan__zones"><i class="zone-A"></i><i class="zone-B"></i><i class="zone-C"></i></span
+                >Congés scolaires
+            </button>
+            <button
+                type="button"
+                class="chip"
+                :class="{ off: masquee('_feries') }"
+                :title="`${masquee('_feries') ? 'Afficher' : 'Masquer'} la ligne des jours fériés`"
+                @click="basculerRubrique('_feries')"
+            >
+                <i class="aff-plan__ferie"></i>Jours fériés
             </button>
             <span class="aff-muted aff-plan__aide">Cliquer sur une rubrique pour l'afficher / la masquer</span>
         </template>
@@ -505,7 +589,9 @@ surReouverture(() => void ouvrir());
         :style="{ '--aff-samw': `${magasin.largeurSamu}px` }"
         @click="actionGrille"
         @keydown="toucheGrille"
-        @pointerdown="redimensionner"
+        @pointerdown="pointeurGrille"
+        @wheel.passive="arreterCentrage"
+        @touchstart.passive="arreterCentrage"
     >
         <p v-if="magasin.erreur" class="aff-error aff-plan__erreur">Chargement impossible : {{ magasin.erreur }}</p>
         <p v-else-if="!magasin.charge" class="aff-muted aff-plan__chargement">Chargement…</p>
@@ -539,6 +625,28 @@ surReouverture(() => void ouvrir());
 </template>
 
 <style>
+.aff-plan__zones {
+    display: inline-flex;
+    gap: 1px;
+}
+.aff-plan__zones i {
+    width: 8px !important;
+    height: 4px !important;
+    border-radius: 1px !important;
+}
+.aff-plan__zones .zone-A {
+    background: #e91e63;
+}
+.aff-plan__zones .zone-B {
+    background: #2196f3;
+}
+.aff-plan__zones .zone-C {
+    background: #ff9800;
+}
+.aff-plan__ferie {
+    height: 4px !important;
+    background: #2e7d32;
+}
 .aff-plan__passe {
     background: #7a8799;
 }

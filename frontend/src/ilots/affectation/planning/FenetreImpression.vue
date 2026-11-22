@@ -43,7 +43,9 @@ const RUBRIQUES: [string, string][] = [
     ['vft', 'VFT'],
     ['formation_utilisateurs', 'Formation « Utilisateurs »'],
     ['accompagnement', 'Accompagnement'],
-    ['_tri', 'Trigrammes des experts (dans les étapes)']
+    ['_tri', 'Trigrammes des experts (dans les étapes)'],
+    ['_conges', 'Congés scolaires (ligne par zone)'],
+    ['_feries', 'Jours fériés (ligne)']
 ];
 const ECHELLES: [Echelle, string][] = [
     ['day', 'Jours'],
