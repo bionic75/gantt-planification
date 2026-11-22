@@ -22,14 +22,13 @@ Fonctionnalité: Ressources (écran)
     Quand je trie la liste des ressources par "Trigramme"
     Alors la colonne "Trigramme" de la liste des ressources est triée par ordre décroissant
 
-  Scénario: Liste : activation et astreintes modifiées depuis le tableau
+  Scénario: Liste : activation modifiée depuis le tableau, astreintes de la période en lecture seule
     Étant donné qu'une ressource standard existe
     Et que je suis connecté en tant que "Administrateur"
     Quand j'ouvre l'onglet "Ressources"
     Et je désactive la ressource depuis la liste
     Alors la ressource est inactive
-    Quand je coche l'astreinte "HO" de la ressource dans la liste
-    Alors la ressource participe aux astreintes "HO"
+    Et les cases d'astreinte de la ressource dans la liste ne sont pas modifiables
 
   Scénario: Liste : suppression refusée puis confirmée
     Étant donné qu'une ressource standard existe

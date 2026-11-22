@@ -133,6 +133,32 @@ describe('fiche', () => {
         expect(formulaireFiche(ressource(), undefined, [])).toMatchObject({ dateDebutMad: '2026-01-01', taux: '50' });
     });
 
+    it('formulaire : astreintes de la période concernée (HO, HNO, APD)', () => {
+        const periode = {
+            id: 7,
+            date_debut: '2026-11-01',
+            date_fin: null,
+            taux: 50,
+            volante: 0,
+            jours_max: null,
+            astreinte_ho: 1,
+            astreinte_hno: 0,
+            astreinte_apd: 1
+        };
+        // La ressource a HNO mais pas la période concernée : c'est la période qui compte
+        const f = formulaireFiche(ressource({ astreinte_volontaire: 1, astreinte_ho: 0 }), undefined, [], periode);
+        expect(f).toMatchObject({ astreinteHo: true, astreinteHno: false, astreinteApd: true });
+        expect(corpsFiche(f, ressource(), 7)).toMatchObject({
+            astreinte_ho: true,
+            astreinte_volontaire: false,
+            astreinte_apd: true
+        });
+        // Sans période : astreintes de la ressource
+        expect(formulaireFiche(ressource({ astreinte_volontaire: 1 }), undefined, [])).toMatchObject({
+            astreinteHno: true
+        });
+    });
+
     it('corps : période visée, ses dates et son type ; MAD volante : taux nul', () => {
         const volante = { id: 5, date_debut: '2026-11-01', date_fin: '2026-11-30', taux: 0, volante: 1, jours_max: 5 };
         const f = formulaireFiche(ressource(), undefined, [], volante);

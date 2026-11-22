@@ -37,6 +37,10 @@ export interface PeriodeMad {
     /** 1 : période de MAD volante (taux 0, quota de jours) ; 0 : MAD classique */
     volante?: number | null;
     jours_max?: number | null;
+    /** Astreintes de la période : HO, HNO, accompagnement post démarrage */
+    astreinte_ho?: number | null;
+    astreinte_hno?: number | null;
+    astreinte_apd?: number | null;
 }
 
 /** Affectation d'une ressource sur un SAMU (expert principal ou secondaire) */
@@ -116,6 +120,9 @@ export interface CorpsPeriode {
 export interface CorpsPeriodeMad extends CorpsPeriode {
     volante?: boolean;
     jours_max?: number | null;
+    astreinte_ho?: boolean;
+    astreinte_hno?: boolean;
+    astreinte_apd?: boolean;
 }
 
 export type TypeAstreinte = 'ho' | 'hno' | 'apd';

@@ -73,9 +73,6 @@ export function formulaireFiche(
         ...champsMad(r, periode),
         principal: [...(affectation?.principal ?? [])],
         secondaire: [...(affectation?.secondaire ?? [])],
-        astreinteHo: !!r.astreinte_ho,
-        astreinteHno: !!r.astreinte_volontaire,
-        astreinteApd: !!r.astreinte_apd,
         dateAstreinte: r.astreinte_date_activation || '',
         contacts: r.contacts_rh || ''
     };
@@ -85,14 +82,27 @@ export function formulaireFiche(
 export function champsMad(
     r: Ressource,
     periode?: PeriodeMad
-): Pick<FormulaireFiche, 'madVolante' | 'dateDebutMad' | 'dateFinMad' | 'joursMaxMad' | 'taux'> {
+): Pick<
+    FormulaireFiche,
+    | 'madVolante'
+    | 'dateDebutMad'
+    | 'dateFinMad'
+    | 'joursMaxMad'
+    | 'taux'
+    | 'astreinteHo'
+    | 'astreinteHno'
+    | 'astreinteApd'
+> {
     if (periode) {
         return {
             madVolante: !!periode.volante,
             dateDebutMad: periode.date_debut || '',
             dateFinMad: periode.date_fin || '',
             joursMaxMad: periode.jours_max ? String(periode.jours_max) : '',
-            taux: String(periode.taux)
+            taux: String(periode.taux),
+            astreinteHo: !!periode.astreinte_ho,
+            astreinteHno: !!periode.astreinte_hno,
+            astreinteApd: !!periode.astreinte_apd
         };
     }
     return {
@@ -100,7 +110,10 @@ export function champsMad(
         dateDebutMad: r.date_debut || '',
         dateFinMad: r.date_fin_mad || '',
         joursMaxMad: r.jours_max_mad ? String(r.jours_max_mad) : '',
-        taux: r.taux === null || r.taux === undefined ? '' : String(r.taux)
+        taux: r.taux === null || r.taux === undefined ? '' : String(r.taux),
+        astreinteHo: !!r.astreinte_ho,
+        astreinteHno: !!r.astreinte_volontaire,
+        astreinteApd: !!r.astreinte_apd
     };
 }
 

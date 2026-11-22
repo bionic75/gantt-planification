@@ -11,7 +11,7 @@ import { emettre } from '@/evenements';
 import { dateFr } from './calculs';
 import FenetreParticularites from './FenetreParticularites.vue';
 import { useRessourcesStore } from './magasin';
-import { periodeCouvrant, periodeIncomplete } from './fiche';
+import { periodeCouvrant, periodeConcernee, periodeIncomplete } from './fiche';
 
 const props = defineProps<{ ressource: Ressource; consultation: boolean }>();
 /** Historique lu (taux enregistré avec la fiche) */
@@ -50,12 +50,27 @@ const saisie = ref<{
     taux: string;
     volante: boolean;
     joursMax: string;
+    astreinteHo: boolean;
+    astreinteHno: boolean;
+    astreinteApd: boolean;
 } | null>(null);
 const messagePeriode = ref('');
 
 function ajouter() {
     messagePeriode.value = '';
-    saisie.value = { id: null, debut: '', fin: '', taux: '', volante: false, joursMax: '' };
+    // Astreintes proposées : celles de la période concernée (continuité d'une période à la suivante)
+    const modele = periodeConcernee(historique.value, new Date().toLocaleDateString('sv-SE'));
+    saisie.value = {
+        id: null,
+        debut: '',
+        fin: '',
+        taux: '',
+        volante: false,
+        joursMax: '',
+        astreinteHo: !!modele?.astreinte_ho,
+        astreinteHno: !!modele?.astreinte_hno,
+        astreinteApd: !!modele?.astreinte_apd
+    };
 }
 
 function modifier(p: PeriodeMad) {
@@ -66,7 +81,10 @@ function modifier(p: PeriodeMad) {
         fin: p.date_fin || '',
         taux: String(p.taux),
         volante: !!p.volante,
-        joursMax: p.jours_max ? String(p.jours_max) : ''
+        joursMax: p.jours_max ? String(p.jours_max) : '',
+        astreinteHo: !!p.astreinte_ho,
+        astreinteHno: !!p.astreinte_hno,
+        astreinteApd: !!p.astreinte_apd
     };
 }
 
@@ -80,7 +98,10 @@ async function enregistrer() {
         date_debut: s.debut,
         date_fin: s.fin || null,
         volante: s.volante,
-        jours_max: s.volante ? parseInt(s.joursMax) : null
+        jours_max: s.volante ? parseInt(s.joursMax) : null,
+        astreinte_ho: s.astreinteHo,
+        astreinte_hno: s.astreinteHno,
+        astreinte_apd: s.astreinteApd
     };
     try {
         if (s.id) await apiRessources.modifierPeriode(props.ressource.id, s.id, corps);
@@ -130,6 +151,7 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                         <th>Date fin</th>
                         <th class="historique__centre">Type</th>
                         <th class="historique__centre">Taux</th>
+                        <th class="historique__centre">Astreintes</th>
                         <th v-if="!consultation" class="historique__centre">Actions</th>
                     </tr>
                 </thead>
@@ -150,6 +172,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                         <td class="historique__taux" :class="{ 'historique__taux--nul': p.taux === 0 }">
                             <template v-if="p.volante">–</template>
                             <template v-else>{{ p.taux }}%</template>
+                        </td>
+                        <td class="historique__centre">
+                            <span v-if="!p.astreinte_ho && !p.astreinte_hno && !p.astreinte_apd">–</span>
+                            <template v-else>
+                                <span v-if="p.astreinte_ho" class="historique__astreinte">HO</span>
+                                <span v-if="p.astreinte_hno" class="historique__astreinte">HNO</span>
+                                <span v-if="p.astreinte_apd" class="historique__astreinte">APD</span>
+                            </template>
                         </td>
                         <td v-if="!consultation" class="historique__centre">
                             <button
@@ -241,6 +271,21 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
                     @input="saisie.taux = texte($event)"
                 />
             </div>
+            <fieldset class="periode__astreintes">
+                <legend>🔔 Astreintes sur cette période</legend>
+                <label class="periode__case"
+                    ><input id="madAstreinteHo" v-model="saisie.astreinteHo" type="checkbox" /> Astreintes HO
+                    <span class="periode__aide">(jours de la semaine, heures ouvrées)</span></label
+                >
+                <label class="periode__case"
+                    ><input id="madAstreinteHno" v-model="saisie.astreinteHno" type="checkbox" /> Astreintes HNO
+                    <span class="periode__aide">(jours et heures non ouvrés)</span></label
+                >
+                <label class="periode__case"
+                    ><input id="madAstreinteApd" v-model="saisie.astreinteApd" type="checkbox" /> Astreintes «
+                    Accompagnement post démarrage »</label
+                >
+            </fieldset>
             <p v-if="messagePeriode" :key="messagePeriode" role="alert" class="historique__erreur">
                 {{ messagePeriode }}
             </p>
@@ -302,6 +347,16 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
 .historique__tableau tbody tr {
     border-bottom: 1px solid #e0e0e0;
 }
+.historique__astreinte {
+    display: inline-block;
+    margin: 0 2px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: #ede7f6;
+    color: #4527a0;
+    font-size: 0.75em;
+    font-weight: 600;
+}
 .historique__badge {
     margin-left: 6px;
     padding: 1px 6px;
@@ -360,6 +415,26 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
     color: white;
     padding: 8px 15px;
     font-size: 12px;
+}
+.periode__astreintes {
+    margin: 8px 0 0;
+    padding: 6px 10px;
+    border: 1px solid #ffe0b2;
+    background: #fff8e1;
+    border-radius: 6px;
+}
+.periode__astreintes legend {
+    padding: 0 4px;
+    font-weight: 600;
+}
+.periode__case {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+}
+.periode__case input {
+    width: auto;
 }
 .periode__aide {
     font-size: 11px;

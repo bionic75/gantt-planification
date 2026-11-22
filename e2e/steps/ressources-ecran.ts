@@ -83,10 +83,10 @@ Then('la ressource est inactive', async ({ monde }) => {
     await expect.poll(async () => (await lireRessource(monde, monde.d.ressource!.id))?.actif).toBe(0);
 });
 
-When("je coche l'astreinte {string} de la ressource dans la liste", async ({ monde }, type) => {
-    await ligneRessource(monde)
-        .getByRole('checkbox', { name: new RegExp(`^Astreintes ${type}\\b`) })
-        .check();
+Then("les cases d'astreinte de la ressource dans la liste ne sont pas modifiables", async ({ monde }) => {
+    const cases = ligneRessource(monde).getByRole('checkbox', { name: /^Astreintes/ });
+    await expect(cases).toHaveCount(3);
+    for (const c of await cases.all()) await expect(c).toBeDisabled();
 });
 
 Then('la ressource participe aux astreintes {string}', async ({ monde }, type) => {
