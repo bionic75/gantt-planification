@@ -90,6 +90,7 @@ describe('ressources et cellules', () => {
         expect(affichageLocalisation(v('2', '1', '🗼 PSC')).texte).toBe('-');
         expect(affichageLocalisation(v('2', '2', '🗼 PSC'))).toMatchObject({ icone: 'tower', texte: 'PSC' });
         expect(affichageLocalisation(v('2', '3', '🚨 SAMU 75'))).toMatchObject({ icone: 'siren', texte: '75' });
+        expect(affichageLocalisation(v('2', '3', '🚨 CAPTV 49'))).toMatchObject({ icone: 'siren', texte: 'C49' });
         expect(affichageLocalisation(v('2', '5', 'Lieu inconnu')).texte).toBe('Lieu inc...');
         expect(couleurAffectation('3', '5')).toBe('#00bcd4');
         expect(couleurAffectation('2', '5')).toBe('#3498db');

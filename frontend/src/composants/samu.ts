@@ -103,3 +103,9 @@ export const LISTE_SAMU = [
         '2B'
     ].map(n => `SAMU ${n}`)
 ];
+
+/** Centres Anti-Poison et de Toxicovigilance (départements d'implantation) */
+export const LISTE_CAPTV = ['49', '33', '13', '75', '69', '54', '31'].map(n => `CAPTV ${n}`);
+
+/** SAMU et CAPTV proposés pour une affectation de déploiement dans la planification */
+export const LISTE_SAMU_ET_CAPTV = [...LISTE_SAMU, ...LISTE_CAPTV];

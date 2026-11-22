@@ -159,6 +159,8 @@ const LOCALISATIONS: Record<string, { icone: string; couleur: string; texte: str
 export function affichageLocalisation(v: ValeursCellule): AffichageLocalisation {
     if (v.dispo === '3') return { conges: true, texte: '' };
     if (v.dispo !== '2' || v.affectation === '1') return { texte: '-' };
+    const captv = /^🚨 CAPTV (\w+)/.exec(v.localisation);
+    if (captv) return { icone: 'siren', couleur: '#e53935', texte: `C${captv[1]}` };
     if (v.localisation.startsWith('🚨 SAMU')) {
         const samu = /SAMU (\w+)/.exec(v.localisation);
         return { icone: 'siren', couleur: '#e53935', texte: samu ? samu[1]! : 'SAMU' };
