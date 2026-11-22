@@ -99,6 +99,10 @@ export interface CorpsFiche {
     is_mad_volante: 0 | 1;
     date_fin_mad: string | null;
     jours_max_mad: number | null;
+    /** Période de MAD visée par les champs de MAD de la fiche, et ses dates */
+    periode_id?: number;
+    periode_debut?: string;
+    periode_fin?: string | null;
 }
 
 /** Période ou particularité saisie */

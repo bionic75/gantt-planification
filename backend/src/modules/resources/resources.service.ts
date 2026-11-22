@@ -336,33 +336,52 @@ function madPeriodData(b: { taux?: unknown; volante?: unknown; jours_max?: unkno
 }
 
 /**
- * Fiche de la ressource : son type de MAD, ses dates et son quota sont ceux de la période en cours (créée au besoin)
+ * Fiche de la ressource : son type de MAD, ses dates et son quota sont ceux de la période indiquée (periode_id), à
+ * défaut de la période en cours (créée au besoin). Dates de la période : periode_debut et periode_fin si elles sont
+ * données (MAD volante ou classique), sinon date_debut et date_fin_mad pour une MAD volante.
  */
 async function appliquerFicheALaPeriode(resource_id: number, data: Record<string, any>) {
-    const { is_mad_volante, date_debut, date_fin_mad, jours_max_mad, taux } = data;
+    const { is_mad_volante, date_debut, date_fin_mad, jours_max_mad, taux, periode_id, periode_debut, periode_fin } =
+        data;
     const periodes = await listMadHistory(resource_id);
-    const current = periodeEnCours(periodes);
-    if (flag(is_mad_volante)) {
-        // Volante : dates de la fiche (début de la MAD, fin) et quota ; taux nul
-        const debut = optional(date_debut) ?? current?.date_debut ?? today();
-        const fin = optional(date_fin_mad);
-        const valeurs = { volante: 1, taux: 0, jours_max: toInt(jours_max_mad), date_debut: debut, date_fin: fin };
-        if (current) {
-            assertNoMadOverlap(
-                periodes.filter(p => p.id !== current.id),
-                debut,
-                fin
-            );
-            await prisma.resourceMadHistory.update({ where: { id: current.id }, data: valeurs });
-        } else await prisma.resourceMadHistory.create({ data: { resource_id, ...valeurs } });
-    } else {
-        // Classique : taux de la fiche, dates de la période conservées
-        const valeurs = { volante: 0, jours_max: null, taux: parseFloat(taux) };
-        if (!Number.isFinite(valeurs.taux)) valeurs.taux = current?.taux ?? 0;
-        if (current) await prisma.resourceMadHistory.update({ where: { id: current.id }, data: valeurs });
-        else await prisma.resourceMadHistory.create({ data: { resource_id, date_debut: today(), ...valeurs } });
+    const indiquee = optional(periode_id) ? periodes.find(p => p.id === idParam(periode_id)) : undefined;
+    if (optional(periode_id) && !indiquee) throw notFound('Période MAD non trouvée');
+    const cible = indiquee ?? periodeEnCours(periodes);
+    const volante = flag(is_mad_volante);
+    const avecDates = periode_debut !== undefined;
+    const debut = avecDates
+        ? optional(periode_debut)
+        : volante
+          ? (optional(date_debut) ?? cible?.date_debut ?? today())
+          : (cible?.date_debut ?? today());
+    const fin = avecDates ? optional(periode_fin) : volante ? optional(date_fin_mad) : (cible?.date_fin ?? null);
+    if (!debut) throw badRequest('Date de début de la période requise');
+    if (fin && fin < debut) throw badRequest('La date de fin doit être postérieure à la date de début');
+    const type = volante
+        ? { volante: 1, taux: 0, jours_max: toInt(jours_max_mad) }
+        : {
+              volante: 0,
+              jours_max: null,
+              taux: Number.isFinite(parseFloat(taux)) ? parseFloat(taux) : (cible?.taux ?? 0)
+          };
+    const datesChangent = !cible || cible.date_debut !== debut || cible.date_fin !== fin;
+    if (datesChangent) {
+        assertNoMadOverlap(
+            periodes.filter(p => p.id !== cible?.id),
+            debut,
+            fin
+        );
     }
+    const valeurs = { ...type, date_debut: debut, date_fin: fin };
+    if (cible) await prisma.resourceMadHistory.update({ where: { id: cible.id }, data: valeurs });
+    else await prisma.resourceMadHistory.create({ data: { resource_id, ...valeurs } });
     await syncResource(resource_id);
+    // Début de la ressource : celui de sa première période (si les dates de la période ont été saisies)
+    if (avecDates) {
+        const premiere = (await listMadHistory(resource_id))[0];
+        if (premiere)
+            await prisma.resource.updateMany({ where: { id: resource_id }, data: { date_debut: premiere.date_debut } });
+    }
 }
 
 export async function addMadPeriod(

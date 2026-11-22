@@ -139,6 +139,57 @@ describe('ressources', () => {
             expect((await admin.post(`/api/resources/${res.id}/mad-history`, corps)).status).toBe(400);
         });
 
+        it('la fiche écrit dans la période indiquée (periode_id), dates comprises, volante ou classique', async () => {
+            const res = await createResource(admin, { taux: 50, date_debut: '2020-01-01' });
+            const [initiale] = await periodes(res.id);
+            await admin.put(`/api/resources/${res.id}/mad-history/${initiale.id}`, {
+                taux: 50,
+                date_debut: '2020-01-01',
+                date_fin: '2025-12-31'
+            });
+            await admin.post(`/api/resources/${res.id}/mad-history`, {
+                taux: 70,
+                date_debut: '2026-01-01',
+                date_fin: ''
+            });
+            // Période en cours (2026-…) : taux 70 ; on modifie la première période, déjà terminée
+            const r = await admin.put(`/api/resources/${res.id}`, {
+                ...res,
+                taux: 40,
+                periode_id: initiale.id,
+                periode_debut: '2020-02-01',
+                periode_fin: '2025-11-30'
+            });
+            expect(r.status, JSON.stringify(r.data)).toBe(200);
+            const [premiere, courante] = await periodes(res.id);
+            expect(premiere).toMatchObject({ taux: 40, date_debut: '2020-02-01', date_fin: '2025-11-30', volante: 0 });
+            expect(courante).toMatchObject({ taux: 70, date_debut: '2026-01-01' });
+            // La ressource suit sa période en cours, sa date de début la première période
+            expect(await findResource(admin, res.id)).toMatchObject({ taux: 70, date_debut: '2020-02-01' });
+            // Une période d'un autre déploiement est refusée
+            const autre = await createResource(admin, { taux: 50, date_debut: '2020-01-01' });
+            const refus = await admin.put(`/api/resources/${autre.id}`, { ...autre, periode_id: initiale.id });
+            expect(refus.status).toBe(404);
+        });
+
+        it('la fiche refuse des dates qui chevauchent une autre période', async () => {
+            const res = await createResource(admin, { taux: 50, date_debut: '2020-01-01' });
+            const [initiale] = await periodes(res.id);
+            await admin.put(`/api/resources/${res.id}/mad-history/${initiale.id}`, {
+                taux: 50,
+                date_debut: '2020-01-01',
+                date_fin: '2025-12-31'
+            });
+            await admin.post(`/api/resources/${res.id}/mad-history`, { taux: 70, date_debut: '2026-01-01' });
+            const r = await admin.put(`/api/resources/${res.id}`, {
+                ...res,
+                periode_id: initiale.id,
+                periode_debut: '2020-01-01',
+                periode_fin: '2026-03-01'
+            });
+            expect(r.status).toBe(400);
+        });
+
         it('la fiche écrit dans la période en cours', async () => {
             const res = await createResource(admin, { taux: 50, date_debut: '2025-01-01' });
             const r = await admin.put(`/api/resources/${res.id}`, {

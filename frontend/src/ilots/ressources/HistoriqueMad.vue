@@ -118,11 +118,11 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
 
 <template>
     <div class="historique">
-        <h4 class="historique__titre">📊 Historique des taux de MAD</h4>
+        <h4 class="historique__titre">📊 Historique des MAD</h4>
         <div id="madHistoryContainer" class="historique__liste">
             <p v-if="etat === 'chargement'" class="historique__info">Chargement...</p>
             <p v-else-if="etat === 'erreur'" class="historique__erreur">Erreur de chargement</p>
-            <p v-else-if="!triees.length" class="historique__vide">Aucun historique de taux MAD</p>
+            <p v-else-if="!triees.length" class="historique__vide">Aucune période de MAD</p>
             <table v-else class="historique__tableau">
                 <thead>
                     <tr>
@@ -184,14 +184,14 @@ const texte = (e: Event) => (e.target as HTMLInputElement).value;
         </div>
         <p v-if="message" :key="message" role="alert" class="historique__erreur">{{ message }}</p>
         <button v-if="!consultation" type="button" class="historique__ajouter" @click="ajouter">
-            ➕ Ajouter une modification
+            ➕ Ajouter une période
         </button>
     </div>
 
     <AppModal
         id="madHistoryModal"
         :opened="!!saisie"
-        :title="saisie?.id ? 'Modifier la période de MAD' : 'Ajouter une modification'"
+        :title="saisie?.id ? 'Modifier la période de MAD' : 'Ajouter une période'"
         class="periode"
         @close="saisie = null"
     >
