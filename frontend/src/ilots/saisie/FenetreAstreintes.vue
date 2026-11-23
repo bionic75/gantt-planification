@@ -8,12 +8,12 @@ import { ErreurApi } from '@/api/client';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppConfirmation from '@/composants/AppConfirmation.vue';
 import AppModal from '@/composants/AppModal.vue';
+import { LISTE_SAMU_ET_CAPTV } from '@/composants/samu';
 import { fournirConfirmation } from '@/composants/confirmation';
 import { surDemande } from '@/cadre/fenetres';
 import { emettre } from '@/evenements';
 import { useSessionStore } from '@/stores/session';
 import {
-    SAMU_ASTREINTES,
     apparenceType,
     arbreAdministrateur,
     arbreExpert,
@@ -257,7 +257,7 @@ async function supprimer(l: LigneAstreinte) {
                             :disabled="saisie.tousSamu"
                         >
                             <option value="">-- Sélectionner un SAMU --</option>
-                            <option v-for="s in SAMU_ASTREINTES" :key="s" :value="s">{{ s }}</option>
+                            <option v-for="s in LISTE_SAMU_ET_CAPTV" :key="s" :value="s">{{ s }}</option>
                         </select>
                         <label class="gp-astreintes__tous">
                             <input
