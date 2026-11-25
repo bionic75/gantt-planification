@@ -559,6 +559,29 @@
     flex-direction: column;
     gap: 4px;
 }
+#atelierRoot .at-planifiee__date {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+#atelierRoot .at-planifiee__date input {
+    flex: 1;
+    min-width: 0;
+}
+#atelierRoot .at-planifiee__agenda {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 8px;
+    border: 1px solid #c5cde0;
+    border-radius: 6px;
+    background: #fff;
+    color: #1d70b7;
+    cursor: pointer;
+}
+#atelierRoot .at-planifiee__agenda:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 #atelierRoot .at-statut {
     display: flex;
     align-items: center;
