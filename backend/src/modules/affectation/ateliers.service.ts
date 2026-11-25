@@ -387,6 +387,10 @@ const VTIMEZONE_PARIS = [
     'END:VTIMEZONE'
 ];
 
+/** Rappel à l'organisateur : ces réglages se font dans les options de la réunion Teams, pas dans l'invitation */
+export const RAPPEL_OPTIONS_TEAMS =
+    "Organisateur, dans Teams (Options de réunion) : lancer automatiquement l'enregistrement et la transcription ? ajouter des co-organisateurs ? laisser entrer sans salle d'attente ?";
+
 /**
  * Invitation (.ics, METHOD:REQUEST) à un atelier : date et heure planifiées du jalon, lien Teams, participants
  */
@@ -506,7 +510,8 @@ export async function sendInvitation(
         `${row.samu_name} — ${j.jalon}`,
         j.contenu,
         message,
-        teams ? `Rejoindre la réunion Microsoft Teams : ${teams}` : ''
+        teams ? `Rejoindre la réunion Microsoft Teams : ${teams}` : '',
+        teams ? RAPPEL_OPTIONS_TEAMS : ''
     ]
         .filter(Boolean)
         .join('\n\n');
@@ -516,7 +521,7 @@ export async function sendInvitation(
         <p style="margin:0 0 6px;"><strong>${esc(frDate(j.planifiee))}${esc(horaire)}</strong></p>
         <p style="margin:0 0 12px;">${esc(j.contenu)}</p>
         ${message ? `<p>${esc(message).replace(/\n/g, '<br>')}</p>` : ''}
-        ${teams ? `<p style="margin:16px 0;"><a href="${esc(teams)}" style="background:#464eb8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Rejoindre la réunion Teams</a></p><p style="font-size:12px;color:#666;">Lien : ${esc(teams)}</p>` : ''}
+        ${teams ? `<p style="margin:16px 0;"><a href="${esc(teams)}" style="background:#464eb8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Rejoindre la réunion Teams</a></p><p style="font-size:12px;color:#666;">Lien : ${esc(teams)}</p><p style="font-size:12px;color:#666;">${esc(RAPPEL_OPTIONS_TEAMS)}</p>` : ''}
         <p style="font-size:12px;color:#666;margin-top:14px;">L'invitation (.ics) jointe ajoute cet atelier à votre agenda.</p>
         ${mailSignatureHtml(organizer.name)}
     </div>`;

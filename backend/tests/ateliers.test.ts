@@ -587,6 +587,7 @@ describe('invitation à un atelier planifié (ics + lien Teams)', () => {
         expect(mail).toMatch(/Content-Type: text\/calendar;[^\n]*method=REQUEST/i);
         expect(mail).toMatch(/Invitation_SAMU_SAS_79_a1\.ics/);
         expect(mail).toContain(teams);
+        expect(mail).toContain('Options de réunion');
         const after = (await admin.get('/api/affectation/ateliers')).data.retroplannings.find((x: any) => x.id === id);
         expect(after.lignes.teams).toBe(teams);
         expect(after.lignes.invites.a1).toBeTruthy();
