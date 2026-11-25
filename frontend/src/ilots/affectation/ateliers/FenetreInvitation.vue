@@ -97,6 +97,10 @@ async function envoyer() {
             }}</span></label
         >
         <input id="atMailTeams" v-model="teams" type="text" placeholder="https://teams.microsoft.com/l/meetup-join/…" />
+        <p class="aff-muted at-fenetre__precision">
+            À régler dans Teams (Options de réunion) avant l’envoi : enregistrement et transcription automatiques,
+            co-organisateurs, accès sans salle d’attente. Un rappel est ajouté à l’invitation.
+        </p>
         <template v-if="heure">
             <label for="atMailEnd">Fin de l’atelier</label>
             <input id="atMailEnd" v-model="fin" type="time" class="at-fenetre__heure" />
