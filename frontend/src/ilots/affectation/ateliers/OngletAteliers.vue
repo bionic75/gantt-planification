@@ -289,8 +289,27 @@ const invitation = ref<{
     repris: boolean;
 } | null>(null);
 
+/** Calendrier du champ date voisin du bouton */
+function ouvrirCalendrier(e: Event) {
+    const champ = (e.currentTarget as HTMLElement).parentElement?.querySelector('input[type="date"]');
+    if (!(champ instanceof HTMLInputElement)) return;
+    try {
+        champ.showPicker();
+    } catch {
+        champ.focus();
+    }
+}
+
 async function ouvrirInvitation(r: JalonSimule) {
     if (!r.planifiee || !f.id) return;
+    // La date et l'heure saisies à la main (sans sondage) ne sont connues du serveur qu'une fois enregistrées
+    try {
+        await apiAteliers.enregistrer(corpsRetroplanning(f));
+        liste.value = (await apiAteliers.liste()).retroplannings ?? [];
+    } catch (e) {
+        annoncer((e as Error).message, true);
+        return;
+    }
     let tous: UtilisateurAteliers[];
     try {
         tous = await lireUtilisateurs();
@@ -619,14 +638,26 @@ surReouverture(() => void ouvrir());
                                 </td>
                                 <td>
                                     <div class="at-planifiee">
-                                        <input
-                                            type="date"
-                                            :data-row="r.key"
-                                            :value="r.planifiee || ''"
-                                            :disabled="!admin"
-                                            :aria-label="`Date réellement planifiée : ${r.jalon}`"
-                                            @change="datePlanifiee(r, ($event.target as HTMLInputElement).value)"
-                                        />
+                                        <div class="at-planifiee__date">
+                                            <input
+                                                type="date"
+                                                :data-row="r.key"
+                                                :value="r.planifiee || ''"
+                                                :disabled="!admin"
+                                                :aria-label="`Date réellement planifiée : ${r.jalon}`"
+                                                @change="datePlanifiee(r, ($event.target as HTMLInputElement).value)"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="at-planifiee__agenda"
+                                                title="Choisir la date dans un calendrier"
+                                                :aria-label="`Ouvrir le calendrier : ${r.jalon}`"
+                                                :disabled="!admin"
+                                                @click="ouvrirCalendrier($event)"
+                                            >
+                                                <IconeAtelier nom="calendar" classe="at-ico-sm" />
+                                            </button>
+                                        </div>
                                         <input
                                             type="time"
                                             :data-row="r.key"
