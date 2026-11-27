@@ -1,6 +1,6 @@
 // Géolocalisation d'une adresse saisie sans suggestion : OpenStreetMap, à défaut la Base Adresse Nationale
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { poiGeocode } from '../src/modules/poi/poi.external.ts';
+import { poiAdresses, poiDepartement, poiGeocode } from '../src/modules/poi/poi.external.ts';
 
 const reponses = (osm: unknown, ban: unknown) => {
     const fetchMock = vi.fn(async (url: string) => {
@@ -43,5 +43,59 @@ describe('géolocalisation d’une adresse', () => {
         const f = reponses([], ban(0.9));
         expect(await poiGeocode('', 'Un nom seul')).toBeNull();
         expect(f).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('adresses proposées pendant la saisie', () => {
+    const adresse = (name: string, postcode: string, city: string) => ({
+        geometry: { coordinates: [0.1, 45.6] },
+        properties: { name, postcode, city, label: `${name} ${postcode} ${city}`, score: 0.7 }
+    });
+
+    it('département du SAMU-SAS tiré de son libellé', () => {
+        expect(['SAMU-SAS 16', 'SAMU 2A', 'SAMU-SAS 64B', 'SAMU-SAS 971', 'CAPTV 49'].map(poiDepartement)).toEqual([
+            '16',
+            '2A',
+            '64',
+            '971',
+            '49'
+        ]);
+        expect([poiDepartement('ANS'), poiDepartement(null)]).toEqual([null, null]);
+    });
+
+    it('le département d’abord, complété par le reste de la France sans doublon', async () => {
+        const local = adresse('Rue de la Combe', '16730', 'Fléac');
+        const f = vi.fn(async (url: string) => ({
+            ok: true,
+            json: async () => ({
+                features: url.includes('depcode=16')
+                    ? [local]
+                    : [local, adresse('Rue de la Combe', '24000', 'Périgueux')]
+            })
+        }));
+        vi.stubGlobal('fetch', f);
+        const r = await poiAdresses('rue de la combe', { departement: '16', lat: 45.65, lng: 0.15 });
+        expect(r.map(a => a.address)).toEqual(['Rue de la Combe, 16730 Fléac', 'Rue de la Combe, 24000 Périgueux']);
+        expect(r[0]).toMatchObject({ latitude: 45.6, longitude: 0.1 });
+        expect(f.mock.calls[0]![0]).toContain('autocomplete=1');
+        expect(f.mock.calls[0]![0]).toContain('lat=45.65');
+    });
+
+    it('assez de résultats dans le département : une seule requête', async () => {
+        const f = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ features: [1, 2, 3, 4, 5].map(n => adresse(`${n} rue A`, '16000', 'Angoulême')) })
+        }));
+        vi.stubGlobal('fetch', f);
+        expect(await poiAdresses('rue a', { departement: '16' })).toHaveLength(5);
+        expect(f).toHaveBeenCalledTimes(1);
+    });
+
+    it('service indisponible : erreur signalée', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => ({ ok: false, status: 503 }))
+        );
+        await expect(poiAdresses('rue a', {})).rejects.toThrow('503');
     });
 });

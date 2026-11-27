@@ -17,6 +17,15 @@ export async function searchPlaces(req: Request, res: Response) {
     }
 }
 
+/** Adresses de la Base Adresse Nationale : 502 si elle est indisponible */
+export async function searchAddresses(req: Request, res: Response) {
+    try {
+        res.json(await service.searchAddresses(req.query.q, req.query.location_id));
+    } catch (e: any) {
+        res.status(502).json({ error: e.message || 'Base Adresse Nationale indisponible' });
+    }
+}
+
 export async function meta(req: Request, res: Response) {
     res.json(await service.getMeta());
 }
