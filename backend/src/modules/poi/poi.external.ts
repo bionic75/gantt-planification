@@ -88,6 +88,38 @@ export function poiNominatim(params: Record<string, string>): Promise<any> {
     return p;
 }
 
+/** Position d'une adresse dans la Base Adresse Nationale (Géoplateforme) ; null si le résultat est trop incertain */
+async function poiBan(address: string) {
+    const r = await fetch(
+        'https://data.geopf.fr/geocodage/search?' + new URLSearchParams({ q: address, limit: '1' }).toString(),
+        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(9000) }
+    );
+    if (!r.ok) return null;
+    const f = ((await r.json()) as any)?.features?.[0];
+    if (!f || !(Number(f.properties?.score) >= 0.5)) return null;
+    const [lng, lat] = f.geometry.coordinates;
+    return { lat: Number(lat), lng: Number(lng) };
+}
+
+/**
+ * Géolocalisation d'une saisie sans suggestion : OpenStreetMap (adresse, à défaut nom), puis la Base Adresse
+ * Nationale pour les adresses françaises absentes d'OpenStreetMap ; null si introuvable
+ */
+export async function poiGeocode(address: string, name: string) {
+    try {
+        const r = (await poiNominatim({ q: address || name, countrycodes: 'fr', limit: '1' }))[0];
+        if (r) return { lat: Number(r.lat), lng: Number(r.lon) };
+    } catch {
+        /* OpenStreetMap indisponible */
+    }
+    if (!address) return null;
+    try {
+        return await poiBan(address);
+    } catch {
+        return null;
+    }
+}
+
 export function poiAddress(a: any) {
     if (!a) return '';
     const street = [a.house_number, a.road || a.pedestrian || a.footway].filter(Boolean).join(' ');

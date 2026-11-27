@@ -2,7 +2,7 @@
 import { prisma } from '../../db/prisma.ts';
 import { idParam, sqlTimestamp } from '../../db/values.ts';
 import { badRequest, forbidden, notFound } from '../../lib/http-error.ts';
-import { poiClean, poiKm, poiMapResult, poiNominatim, poiRouteCache, poiRouteOne } from './poi.external.ts';
+import { poiClean, poiGeocode, poiKm, poiMapResult, poiNominatim, poiRouteCache, poiRouteOne } from './poi.external.ts';
 
 export const POI_CATS = ['hebergement', 'restaurant', 'bar'];
 
@@ -250,16 +250,9 @@ async function poiBody(b: any) {
     let lng: number | null = Number(b.longitude);
     if (!(isFinite(lat) && isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat || lng))) {
         lat = lng = null;
-        // Adresse saisie sans suggestion : géolocalisation par la base de référence
-        try {
-            const r = (await poiNominatim({ q: address || name, countrycodes: 'fr', limit: '1' }))[0];
-            if (r) {
-                lat = Number(r.lat);
-                lng = Number(r.lon);
-            }
-        } catch {
-            /* géolocalisation indisponible */
-        }
+        // Adresse saisie sans suggestion
+        const position = await poiGeocode(address, name);
+        if (position) ({ lat, lng } = position);
         if (lat == null) {
             throw badRequest(
                 "Adresse introuvable : choisissez une suggestion de la liste ou précisez l'adresse pour pouvoir placer le lieu sur la carte"
