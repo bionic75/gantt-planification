@@ -88,6 +88,75 @@ export function poiNominatim(params: Record<string, string>): Promise<any> {
     return p;
 }
 
+/** Département d'un SAMU-SAS d'après son libellé (« SAMU-SAS 16 », « SAMU 2A », « SAMU-SAS 64B ») */
+export const poiDepartement = (libelle: string | null | undefined) =>
+    /\b(97\d|2[AB]|\d{2})[AB]?\s*$/i.exec(String(libelle || '').trim())?.[1]?.toUpperCase() ?? null;
+
+/** Recherche dans la Base Adresse Nationale (Géoplateforme) */
+async function poiBanRecherche(params: Record<string, string>): Promise<any[]> {
+    const r = await fetch('https://data.geopf.fr/geocodage/search?' + new URLSearchParams(params).toString(), {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(9000)
+    });
+    if (!r.ok) throw new Error(`Base Adresse Nationale indisponible (${r.status})`);
+    return ((await r.json()) as any)?.features ?? [];
+}
+
+/** Position d'une adresse dans la Base Adresse Nationale ; null si le résultat est trop incertain */
+async function poiBan(address: string) {
+    const f = (await poiBanRecherche({ q: address, limit: '1' }))[0];
+    if (!f || !(Number(f.properties?.score) >= 0.5)) return null;
+    const [lng, lat] = f.geometry.coordinates;
+    return { lat: Number(lat), lng: Number(lng) };
+}
+
+/**
+ * Adresses proposées pendant la saisie : celles du département du SAMU-SAS d'abord (les plus proches en tête),
+ * complétées par le reste de la France s'il y en a moins de cinq
+ */
+export async function poiAdresses(
+    q: string,
+    autour: { departement?: string | null; lat?: Coordonnee; lng?: Coordonnee }
+) {
+    const params: Record<string, string> = { q, autocomplete: '1', limit: '8' };
+    if (autour.lat != null && autour.lng != null) {
+        params.lat = String(autour.lat);
+        params.lon = String(autour.lng);
+    }
+    const trouvees = autour.departement ? await poiBanRecherche({ ...params, depcode: autour.departement }) : [];
+    if (trouvees.length < 5) trouvees.push(...(await poiBanRecherche(params)));
+    const adresses = trouvees.map(f => {
+        const p = f.properties;
+        const [lng, lat] = f.geometry.coordinates;
+        const commune = `${p.postcode ?? ''} ${p.city ?? ''}`.trim();
+        return {
+            address: p.name && p.name !== p.city ? `${p.name}, ${commune}` : commune,
+            latitude: Number(lat),
+            longitude: Number(lng)
+        };
+    });
+    return [...new Map(adresses.map(a => [a.address, a])).values()].slice(0, 8);
+}
+
+/**
+ * Géolocalisation d'une saisie sans suggestion : OpenStreetMap (adresse, à défaut nom), puis la Base Adresse
+ * Nationale pour les adresses françaises absentes d'OpenStreetMap ; null si introuvable
+ */
+export async function poiGeocode(address: string, name: string) {
+    try {
+        const r = (await poiNominatim({ q: address || name, countrycodes: 'fr', limit: '1' }))[0];
+        if (r) return { lat: Number(r.lat), lng: Number(r.lon) };
+    } catch {
+        /* OpenStreetMap indisponible */
+    }
+    if (!address) return null;
+    try {
+        return await poiBan(address);
+    } catch {
+        return null;
+    }
+}
+
 export function poiAddress(a: any) {
     if (!a) return '';
     const street = [a.house_number, a.road || a.pedestrian || a.footway].filter(Boolean).join(' ');

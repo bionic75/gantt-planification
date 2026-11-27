@@ -7,6 +7,7 @@ import * as ctrl from './poi.controller.ts';
 const router = Router();
 
 router.get('/poi/places', requireAuth, h(ctrl.searchPlaces));
+router.get('/poi/addresses', requireAuth, h(ctrl.searchAddresses));
 router.get('/poi/meta', requireAuth, h(ctrl.meta));
 router.get('/poi', requireAuth, h(ctrl.list));
 router.post('/poi', requireAuth, h(ctrl.create));

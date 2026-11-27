@@ -1250,6 +1250,11 @@
         "guard": "auth"
     },
     {
+        "method": "GET",
+        "path": "/api/poi/addresses",
+        "guard": "auth"
+    },
+    {
         "method": "PUT",
         "path": "/api/poi/comments/:cid",
         "guard": "auth"

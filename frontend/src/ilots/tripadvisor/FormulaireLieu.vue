@@ -1,7 +1,7 @@
 <!-- Fenêtre d'ajout ou de modification d'un lieu, avec suggestions de la base de référence (OpenStreetMap) -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { apiLieux, type Categorie, type Lieu, type Suggestion } from '@/api/poi';
+import { apiLieux, type Adresse, type Categorie, type Lieu, type Suggestion } from '@/api/poi';
 import AppAlert from '@/composants/AppAlert.vue';
 import AppButton from '@/composants/AppButton.vue';
 import AppInput from '@/composants/AppInput.vue';
@@ -9,6 +9,7 @@ import AppModal from '@/composants/AppModal.vue';
 import AppNotation from '@/composants/AppNotation.vue';
 import AppSelect from '@/composants/AppSelect.vue';
 import AppTag from '@/composants/AppTag.vue';
+import ChampAdresse from './ChampAdresse.vue';
 import { CATEGORIES, km, LISTE_CATEGORIES } from './format';
 import { useLieuxStore } from './magasin';
 
@@ -128,6 +129,13 @@ function adresseSaisie(v: string) {
     osmRef.value = '';
 }
 
+/** Adresse choisie dans la liste : sa position est reprise */
+function adresseChoisie(a: Adresse) {
+    adresse.value = a.address;
+    position.value = { latitude: a.latitude, longitude: a.longitude };
+    osmRef.value = '';
+}
+
 function samuChoisi(v: string) {
     samu.value = v;
     planifierSuggestions(true);
@@ -242,13 +250,11 @@ async function enregistrer() {
                 </AppInput>
                 <div id="tfSugMsg" class="tr-form__message" aria-live="polite">{{ message }}</div>
             </div>
-            <AppInput
-                id="tfAddr"
+            <ChampAdresse
                 :model-value="adresse"
-                label="Adresse"
-                maxlength="250"
-                placeholder="Remplie automatiquement ; modifiable"
+                :samu="samu"
                 @update:model-value="adresseSaisie"
+                @choisie="adresseChoisie"
             />
             <div class="tr-form__position" :class="{ 'tr-form__position--ok': position }">
                 <template v-if="position">

@@ -97,6 +97,13 @@ export interface Suggestion {
     distance_km: number | null;
 }
 
+/** Adresse de la Base Adresse Nationale */
+export interface Adresse {
+    address: string;
+    latitude: number;
+    longitude: number;
+}
+
 export type Point = [number, number];
 
 /** Étape d'un trajet en transports en commun */
@@ -165,6 +172,11 @@ export const apiLieux = {
         const p = new URLSearchParams({ q });
         if (loc) p.set('location_id', loc);
         return api.get<{ places: Suggestion[] }>(`/poi/places?${p.toString()}`);
+    },
+    adresses(q: string, loc: string) {
+        const p = new URLSearchParams({ q });
+        if (loc) p.set('location_id', loc);
+        return api.get<{ addresses: Adresse[] }>(`/poi/addresses?${p.toString()}`);
     },
     creer: (corps: CorpsLieu) => api.post<{ id: number }>('/poi', corps),
     modifier: (id: number, corps: CorpsLieu) => api.put(`/poi/${id}`, corps),
