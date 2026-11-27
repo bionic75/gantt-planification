@@ -26,7 +26,7 @@ Protections :
 | `mfaPending` | Connexion en attente de double authentification |
 | `apiKey` | Clé d’API (en-tête X-Api-Key) |
 
-332 routes, par module (`backend/src/modules/<module>`) :
+333 routes, par module (`backend/src/modules/<module>`) :
 
 ## admin
 
@@ -370,6 +370,7 @@ Protections :
 | PUT | `/api/poi/:id/rating` | auth |
 | DELETE | `/api/poi/:id/rating` | auth |
 | GET | `/api/poi/:id/route` | auth |
+| GET | `/api/poi/addresses` | auth |
 | PUT | `/api/poi/comments/:cid` | auth |
 | DELETE | `/api/poi/comments/:cid` | auth |
 | GET | `/api/poi/meta` | auth |
