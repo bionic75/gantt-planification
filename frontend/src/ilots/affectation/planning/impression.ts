@@ -2,6 +2,7 @@
 // PowerPoint, colonnes réparties ou tenant sur une page, lignes réparties d'après leur hauteur réelle ; HTML des exports
 import type { ApercuModele, Deploiement, ElementDiapositive, ModeleExport } from '@/api/affectation';
 import {
+    aUneActivite,
     construireColonnes,
     contenuCellule,
     deploiementsTries,
@@ -171,34 +172,46 @@ export function mettreEnPage(
     const fixedH = T ? legH : hauteur('.pg-head') + 5 + legH + hauteur('.pg-foot') + 6;
     mesure.remove();
     const disponible = contentH - fixedH - headH - 4;
-    const pagesLignes: Deploiement[][] = [];
-    if (!deploiements.length) pagesLignes.push([]);
-    else {
+    const hauteurDe = new Map(deploiements.map((pr, i) => [pr.id, hauteurs[i] ?? 0]));
+    const repartir = (liste: Deploiement[]) => {
+        const lots: Deploiement[][] = [];
         let cur: Deploiement[] = [];
         let used = 0;
-        deploiements.forEach((pr, i) => {
-            const h = hauteurs[i] ?? 0;
+        for (const pr of liste) {
+            const h = hauteurDe.get(pr.id) ?? 0;
             if (cur.length && used + h > disponible) {
-                pagesLignes.push(cur);
+                lots.push(cur);
                 cur = [];
                 used = 0;
             }
             cur.push(pr);
             used += h;
-        });
-        if (cur.length) pagesLignes.push(cur);
-    }
-    const total = pagesColonnes.length * pagesLignes.length;
+        }
+        if (cur.length) lots.push(cur);
+        return lots;
+    };
+    // Chaque tranche de colonnes ne garde que les SAMU qui y ont une activité ; une tranche sans aucun SAMU actif n'est
+    // pas imprimée
+    const sections = pagesColonnes
+        .map(cp => {
+            const du = cp.cols[0]!.from;
+            const au = cp.cols[cp.cols.length - 1]!.to;
+            return { cp, lots: repartir(deploiements.filter(p => aUneActivite(ctx, p, du, au))) };
+        })
+        .filter(x => x.lots.length);
+    // Rien à montrer : une page unique avec le message
+    if (!sections.length) sections.push({ cp: pagesColonnes[0]!, lots: [[]] });
+    const total = sections.reduce((somme, x) => somme + x.lots.length, 0);
     const sousTitre = `${jourFr(o.from)} → ${jourFr(o.to)} · échelle : ${LIBELLE_ECHELLE[o.zoom]} · édité le ${jourFr(aujourdhui())}`;
     const pages: string[] = [];
     const subtitles: string[] = [];
-    const aucun = '<p style="color:#778;font-size:11px;">Aucun SAMU sélectionné.</p>';
-    pagesColonnes.forEach((cp, ci) =>
-        pagesLignes.forEach((rp, ri) => {
+    const aucun = `<p style="color:#778;font-size:11px;">${deploiements.length ? 'Aucune activité sur la période pour les SAMU sélectionnés.' : 'Aucun SAMU sélectionné.'}</p>`;
+    sections.forEach(({ cp, lots }, ci) =>
+        lots.forEach((rp, ri) => {
             const k = pages.length + 1;
             const partie =
-                (pagesColonnes.length > 1 ? ` · colonnes ${ci + 1}/${pagesColonnes.length}` : '') +
-                (pagesLignes.length > 1 ? ` · SAMU ${ri + 1}/${pagesLignes.length}` : '');
+                (sections.length > 1 ? ` · colonnes ${ci + 1}/${sections.length}` : '') +
+                (lots.length > 1 ? ` · SAMU ${ri + 1}/${lots.length}` : '');
             if (T) {
                 subtitles.push(`${jourFr(o.from)} → ${jourFr(o.to)}`);
                 pages.push(

@@ -249,6 +249,23 @@ export function contenuCellule(ctx: ContexteGrille, tri: Trigrammes, p: Deploiem
         : repos;
 }
 
+/**
+ * Vrai si la ligne du SAMU montre au moins une activité entre deux dates : phase, étape, jalon, mise en service ou en
+ * production, hors rubriques masquées (le début du projet, les congés et les jours fériés n'en sont pas)
+ */
+export function aUneActivite(ctx: ContexteGrille, p: Deploiement, from: string, to: string) {
+    const visible = (k: string) => !ctx.masquees.has(k);
+    const dans = (d: string | null | undefined) => !!d && d >= from && d <= to;
+    return (
+        [...PHASES, ...ETAPES].some(
+            k => visible(k) && (p.periods?.[k] ?? []).some(x => x.start <= to && x.end >= from)
+        ) ||
+        JALONS.some(k => visible(k) && dans(p.periods?.[k]?.[0]?.start)) ||
+        (visible('mise_en_service') && dans(p.date_mise_en_service)) ||
+        (visible('mise_en_production') && dans(p.date_mise_en_production))
+    );
+}
+
 export type CleTri = 'samu' | 'chef' | 'mes' | 'mep';
 export interface TriGrille {
     key: CleTri;
